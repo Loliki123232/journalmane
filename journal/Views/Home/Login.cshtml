@@ -1,0 +1,464 @@
+﻿@model User
+@{
+    ViewData["Title"] = "Вход в систему";
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"]</title>
+
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>Вход в систему</h1>
+            <p>Введите ваши учетные данные</p>
+        </div>
+
+        <form id="loginForm" asp-controller="Home" asp-action="Login" method="post">
+            <div class="form-group">
+                <label asp-for="login" for="username">Логин:</label>
+                <input asp-for="login" type="text" id="username" name="username" required placeholder="Введите ваш логин" aria-required="true">
+            </div>
+
+            <div class="form-group">
+                <label asp-for="password" for="password">Пароль:</label>
+                <input asp-for="password" type="password" id="password" name="password" required placeholder="Введите ваш пароль" aria-required="true">
+                <span asp-validation-for="Password" class="text-danger"></span>
+            </div>
+
+            <div class="remember-group">
+                <!-- Исправлено: type="checkbox" и name="rememberMe" -->
+                <input asp-for="rememberMe" type="checkbox" id="remember" name="rememberMe">
+                <label asp-for="rememberMe" for="remember">Запомнить меня</label>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="login-button" aria-label="Войти в систему">
+                    Войти
+                </button>
+                <button type="button" class="teacher-button" aria-label="Войти как преподаватель">
+                    Войти как преподаватель
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const teacherButton = document.querySelector('.teacher-button');
+
+            // Обработка отправки формы
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const remember = document.getElementById('remember').checked;
+
+                // Валидация
+                if (!username.trim() || !password.trim()) {
+                    showMessage('Пожалуйста, заполните все поля', 'error');
+                    return;
+                }
+
+                // Здесь можно добавить логику авторизации
+                console.log('Логин:', username);
+                console.log('Пароль:', password);
+                console.log('Запомнить:', remember);
+
+                showMessage('Вход выполняется...', 'success');
+
+                // Имитация загрузки
+                setTimeout(() => {
+                    showMessage('Добро пожаловать!', 'success');
+                }, 1000);
+            });
+
+            // Обработка кнопки преподавателя
+            teacherButton.addEventListener('click', function() {
+                showMessage('Режим преподавателя активируется...', 'info');
+
+                // Имитация переключения режима
+                setTimeout(() => {
+                    document.querySelector('.login-header h1').textContent = 'Вход для преподавателя';
+                    document.querySelector('.login-header p').textContent = 'Введите учетные данные преподавателя';
+                    showMessage('Режим преподавателя активирован', 'success');
+                }, 500);
+            });
+
+            // Функция показа сообщений
+            function showMessage(message, type) {
+                // Удаляем предыдущие сообщения
+                const existingMessage = document.querySelector('.message');
+                if (existingMessage) {
+                    existingMessage.remove();
+                }
+
+                const messageEl = document.createElement('div');
+                messageEl.className = `message message-${type}`;
+                messageEl.textContent = message;
+                messageEl.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: 600;
+                    z-index: 1000;
+                    animation: slideDown 0.3s ease;
+                    max-width: 90%;
+                    text-align: center;
+                    background: ${type === 'error' ? '#ff4444' : type === 'success' ? '#4CAF50' : '#2196F3'};
+                `;
+
+                document.body.appendChild(messageEl);
+
+                // Автоматическое скрытие
+                setTimeout(() => {
+                    if (messageEl.parentNode) {
+                        messageEl.style.animation = 'slideUp 0.3s ease';
+                        setTimeout(() => messageEl.remove(), 300);
+                    }
+                }, 3000);
+            }
+
+            // Добавляем стили для анимации сообщений
+            const style = document.createElement('style');
+            style.textContent = `
+                @@keyframes slideDown {
+                    from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+                    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+                }
+                @@keyframes slideUp {
+                    from { transform: translateX(-50%) translateY(0); opacity: 1; }
+                    to { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        });
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-red: #ff4444;
+            --dark-red: #cc0000;
+            --light-red: #ff6666;
+            --white: #ffffff;
+            --gray-light: #f5f5f5;
+            --gray-medium: #666;
+            --gray-dark: #333;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            --shadow-hover: 0 5px 15px rgba(255, 68, 68, 0.4);
+            --border-radius: 15px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, var(--primary-red) 0%, var(--light-red) 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .login-container {
+            background: var(--white);
+            padding: clamp(25px, 5vw, 40px);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: min(400px, 90vw);
+            transition: var(--transition);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: clamp(20px, 4vw, 30px);
+        }
+
+            .login-header h1 {
+                color: var(--primary-red);
+                font-size: clamp(24px, 5vw, 28px);
+                margin-bottom: clamp(8px, 2vw, 10px);
+                font-weight: 700;
+                line-height: 1.2;
+            }
+
+            .login-header p {
+                color: var(--gray-medium);
+                font-size: clamp(13px, 3vw, 14px);
+                line-height: 1.4;
+            }
+
+        .form-group {
+            margin-bottom: clamp(15px, 3vw, 20px);
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: clamp(4px, 1vw, 5px);
+                color: var(--gray-dark);
+                font-weight: 600;
+                font-size: clamp(14px, 3vw, 16px);
+            }
+
+            .form-group input[type="text"],
+            .form-group input[type="password"] {
+                width: 100%;
+                padding: clamp(10px, 2.5vw, 12px) clamp(12px, 3vw, 15px);
+                border: 2px solid #ddd;
+                border-radius: 8px;
+                font-size: clamp(14px, 3vw, 16px);
+                transition: var(--transition);
+                background: var(--white);
+            }
+
+                .form-group input[type="text"]:focus,
+                .form-group input[type="password"]:focus {
+                    outline: none;
+                    border-color: var(--primary-red);
+                    box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.1);
+                    transform: translateY(-1px);
+                }
+
+        .remember-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: clamp(20px, 4vw, 25px);
+            padding: 5px 0;
+        }
+
+            .remember-group input[type="checkbox"] {
+                margin-right: 10px;
+                width: clamp(16px, 4vw, 18px);
+                height: clamp(16px, 4vw, 18px);
+                accent-color: var(--primary-red);
+                flex-shrink: 0;
+            }
+
+            .remember-group label {
+                color: var(--gray-medium);
+                cursor: pointer;
+                font-size: clamp(14px, 3vw, 16px);
+                user-select: none;
+            }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(10px, 2vw, 15px);
+        }
+
+        .login-button {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
+            color: var(--white);
+            border: none;
+            padding: clamp(12px, 3vw, 15px);
+            border-radius: 8px;
+            font-size: clamp(14px, 3vw, 16px);
+            font-weight: bold;
+            cursor: pointer;
+            transition: var(--transition);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .login-button:hover {
+                background: linear-gradient(135deg, var(--dark-red) 0%, var(--primary-red) 100%);
+                transform: translateY(-2px);
+                box-shadow: var(--shadow-hover);
+            }
+
+            .login-button:active {
+                transform: translateY(0);
+            }
+
+            .login-button:focus {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.3);
+            }
+
+        .teacher-button {
+            width: 100%;
+            background: var(--white);
+            color: var(--primary-red);
+            border: 2px solid var(--primary-red);
+            padding: clamp(12px, 3vw, 15px);
+            border-radius: 8px;
+            font-size: clamp(14px, 3vw, 16px);
+            font-weight: bold;
+            cursor: pointer;
+            transition: var(--transition);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+            .teacher-button:hover {
+                background: var(--primary-red);
+                color: var(--white);
+                transform: translateY(-2px);
+                box-shadow: var(--shadow-hover);
+            }
+
+            .teacher-button:active {
+                transform: translateY(0);
+            }
+
+            .teacher-button:focus {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.3);
+            }
+
+        /* Анимации */
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-container {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        /* Очень маленькие экраны (мобильные) */
+        @@media (max-width: 360px) {
+            body {
+                padding: 10px;
+            }
+
+            .login-container {
+                padding: 20px 15px;
+                border-radius: 12px;
+            }
+
+            .button-group {
+                gap: 8px;
+            }
+        }
+
+        /* Планшеты и маленькие ноутбуки */
+        @@media (min-width: 768px) and (max-width: 1024px) {
+            .login-container {
+                max-width: 450px;
+                padding: 35px;
+            }
+
+            .login-header h1 {
+                font-size: 32px;
+            }
+        }
+
+        /* Большие экраны */
+        @@media (min-width: 1200px) {
+            .login-container {
+                max-width: 420px;
+            }
+
+                .login-container:hover {
+                    transform: translateY(-5px);
+                }
+        }
+
+        /* Портретная ориентация мобильных */
+        @@media (max-height: 600px) and (orientation: portrait) {
+            body {
+                align-items: flex-start;
+                padding-top: 40px;
+                min-height: auto;
+            }
+
+            .login-container {
+                margin: 20px 0;
+            }
+        }
+
+        /* Ландшафтная ориентация мобильных */
+        @@media (max-height: 500px) and (orientation: landscape) {
+            body {
+                padding: 10px;
+                align-items: flex-start;
+            }
+
+            .login-container {
+                max-width: 90%;
+                margin: 10px 0;
+            }
+
+            .form-group {
+                margin-bottom: 12px;
+            }
+
+            .remember-group {
+                margin-bottom: 15px;
+            }
+        }
+
+        /* Поддержка темной темы */
+        @@media (prefers-color-scheme: dark) {
+            .login-container {
+                background: #2d2d2d;
+            }
+
+            .form-group label {
+                color: #e0e0e0;
+            }
+
+            .form-group input[type="text"],
+            .form-group input[type="password"] {
+                background: #3d3d3d;
+                border-color: #555;
+                color: #fff;
+            }
+
+            .login-header p {
+                color: #aaa;
+            }
+
+            .remember-group label {
+                color: #aaa;
+            }
+        }
+
+        /* Улучшения для доступности */
+        @@media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Фокус для клавиатурной навигации */
+        .login-button:focus-visible,
+        .teacher-button:focus-visible,
+        input:focus-visible {
+            outline: 2px solid var(--primary-red);
+            outline-offset: 2px;
+        }
+    </style>
+</body>
+</html>
