@@ -1,0 +1,686 @@
+﻿@model AdminDashboardViewModel
+@{
+    ViewData["Title"] = "Панель администратора";
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"]</title>
+    <style>
+        /* Стили остаются без изменений */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-blue: #2c3e50;
+            --secondary-blue: #34495e;
+            --accent-blue: #3498db;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --white: #ffffff;
+            --gray-light: #ecf0f1;
+            --gray-medium: #bdc3c7;
+            --gray-dark: #7f8c8d;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-hover: 0 6px 12px rgba(0, 0, 0, 0.15);
+            --border-radius: 8px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .admin-container {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            min-height: 100vh;
+        }
+
+        /* Сайдбар */
+        .sidebar {
+            background: var(--primary-blue);
+            color: var(--white);
+            padding: 20px 0;
+            box-shadow: var(--shadow);
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+        }
+
+            .sidebar-header h2 {
+                font-size: 18px;
+                font-weight: 600;
+            }
+
+        .sidebar-nav {
+            list-style: none;
+        }
+
+        .nav-item {
+            margin-bottom: 5px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--gray-light);
+            text-decoration: none;
+            transition: var(--transition);
+            border-left: 3px solid transparent;
+        }
+
+            .nav-link:hover,
+            .nav-link.active {
+                background: rgba(255,255,255,0.1);
+                color: var(--white);
+                border-left-color: var(--accent-blue);
+            }
+
+        /* Основной контент */
+        .main-content {
+            background: var(--gray-light);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .header {
+            background: var(--white);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+            .header h1 {
+                color: var(--primary-blue);
+                font-size: 24px;
+                font-weight: 600;
+            }
+
+        .logout-btn {
+            background: var(--danger);
+            color: var(--white);
+            border: none;
+            padding: 8px 16px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+            .logout-btn:hover {
+                background: #c0392b;
+            }
+
+        /* Формы */
+        .form-section {
+            background: var(--white);
+            padding: 25px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            color: var(--primary-blue);
+            font-size: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--gray-light);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 600;
+                color: var(--secondary-blue);
+            }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid var(--gray-medium);
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+            .form-control:focus {
+                outline: none;
+                border-color: var(--accent-blue);
+                box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+            }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: var(--white);
+        }
+
+            .btn-primary:hover {
+                background: #2980b9;
+                box-shadow: var(--shadow-hover);
+            }
+
+        .btn-success {
+            background: var(--success);
+            color: var(--white);
+        }
+
+            .btn-success:hover {
+                background: #219a52;
+            }
+
+        /* Таблицы */
+        .table-container {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+            .table th,
+            .table td {
+                padding: 12px 15px;
+                text-align: left;
+                border-bottom: 1px solid var(--gray-light);
+            }
+
+            .table th {
+                background: var(--secondary-blue);
+                color: var(--white);
+                font-weight: 600;
+            }
+
+            .table tr:hover {
+                background: var(--gray-light);
+            }
+
+        /* Вкладки */
+        .tabs {
+            display: flex;
+            background: var(--white);
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+            overflow: hidden;
+        }
+
+        .tab {
+            padding: 15px 20px;
+            background: var(--gray-light);
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 600;
+        }
+
+            .tab.active {
+                background: var(--accent-blue);
+                color: var(--white);
+            }
+
+        .tab-content {
+            display: none;
+            padding: 20px;
+            background: var(--white);
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+        }
+
+            .tab-content.active {
+                display: block;
+            }
+
+        /* Адаптивность */
+        @@media (max-width: 768px) {
+            .admin-container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: none;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .text-danger {
+            color: var(--danger);
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .field-validation-error {
+            color: var(--danger);
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Сайдбар -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Панель администратора</h2>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="nav-item">
+                    <a href="#students" class="nav-link active" data-tab="students">
+                        👥 Студенты
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#teachers" class="nav-link" data-tab="teachers">
+                        👨‍🏫 Преподаватели
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#schedule" class="nav-link" data-tab="schedule">
+                        📅 Расписание
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#groups" class="nav-link" data-tab="groups">
+                        🎓 Группы
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <!-- Уведомления -->
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success" style="background: var(--success); color: white; padding: 15px; border-radius: var(--border-radius); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>@TempData["Success"]</span>
+                    <button type="button" onclick="this.parentElement.style.display='none'" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">×</button>
+                </div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger" style="background: var(--danger); color: white; padding: 15px; border-radius: var(--border-radius); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>@TempData["Error"]</span>
+                    <button type="button" onclick="this.parentElement.style.display='none'" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">×</button>
+                </div>
+            }
+
+            <div class="header">
+                <h1>Панель управления учебным процессом</h1>
+                <form asp-controller="Account" asp-action="Logout" method="post">
+                    <button type="submit" class="logout-btn">Выйти</button>
+                </form>
+            </div>
+
+            <!-- Управление студентами -->
+            <div id="students" class="tab-content active">
+                <div class="form-section">
+                    <h3 class="section-title">Добавить студента</h3>
+                    <!-- ОТДЕЛЬНАЯ ФОРМА ДЛЯ СТУДЕНТОВ -->
+                    <form method="post" action="/Admin/AddStudent">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="StudentLogin">Логин:</label>
+                                <input type="text" id="StudentLogin" name="Login" class="form-control" placeholder="Введите логин студента" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="StudentPassword">Пароль:</label>
+                                <input type="password" id="StudentPassword" name="Password" class="form-control" placeholder="Введите пароль" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="StudentFullName">ФИО:</label>
+                                <input type="text" id="StudentFullName" name="FullName" class="form-control" placeholder="Введите ФИО студента" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="StudentGroupId">Группа:</label>
+                                <select id="StudentGroupId" name="GroupId" class="form-control" required>
+                                    <option value="">Выберите группу</option>
+                                    @foreach (var group in Model.Groups)
+                                    {
+                                        <option value="@group.Id">@group.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success">Добавить студента</button>
+                    </form>
+                </div>
+
+                <div class="form-section">
+                    <h3 class="section-title">Список студентов</h3>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Логин</th>
+                                    <th>ФИО</th>
+                                    <th>Группа</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var student in Model.Students)
+                                {
+                                    <tr>
+                                        <td>@student.Id</td>
+                                        <td>@student.Login</td>
+                                        <td>@student.FullName</td>
+                                        <td>@student.GroupName</td>
+                                        <td>
+                                            <form method="post" action="/Admin/DeleteStudent" style="display: inline;">
+                                                <input type="hidden" name="id" value="@student.Id" />
+                                                <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Управление преподавателями -->
+            <div id="teachers" class="tab-content">
+                <div class="form-section">
+                    <h3 class="section-title">Добавить преподавателя</h3>
+                    <!-- ОТДЕЛЬНАЯ ФОРМА ДЛЯ ПРЕПОДАВАТЕЛЕЙ -->
+                    <form method="post" action="/Admin/AddTeacher">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="TeacherLogin">Логин:</label>
+                                <input type="text" id="TeacherLogin" name="Login" class="form-control" placeholder="Введите логин преподавателя" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="TeacherPassword">Пароль:</label>
+                                <input type="password" id="TeacherPassword" name="Password" class="form-control" placeholder="Введите пароль" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="TeacherFullName">ФИО:</label>
+                                <input type="text" id="TeacherFullName" name="FullName" class="form-control" placeholder="Введите ФИО преподавателя" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="TeacherSubject">Предмет:</label>
+                                <input type="text" id="TeacherSubject" name="Subject" class="form-control" placeholder="Введите название предмета" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success">Добавить преподавателя</button>
+                    </form>
+                </div>
+
+                <div class="form-section">
+                    <h3 class="section-title">Список преподавателей</h3>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Логин</th>
+                                    <th>ФИО</th>
+                                    <th>Предмет</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var teacher in Model.Teachers)
+                                {
+                                    <tr>
+                                        <td>@teacher.Id</td>
+                                        <td>@teacher.Login</td>
+                                        <td>@teacher.FullName</td>
+                                        <td>@teacher.Subject</td>
+                                        <td>
+                                            <form method="post" action="/Admin/DeleteTeacher" style="display: inline;">
+                                                <input type="hidden" name="id" value="@teacher.Id" />
+                                                <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Управление расписанием -->
+            <div id="schedule" class="tab-content">
+                <div class="form-section">
+                    <h3 class="section-title">Создать расписание</h3>
+                    <!-- ОТДЕЛЬНАЯ ФОРМА ДЛЯ РАСПИСАНИЯ -->
+                    <form method="post" action="/Admin/AddSchedule">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="ScheduleGroupId">Группа:</label>
+                                <select id="ScheduleGroupId" name="GroupId" class="form-control" required>
+                                    <option value="">Выберите группу</option>
+                                    @foreach (var group in Model.Groups)
+                                    {
+                                        <option value="@group.Id">@group.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="ScheduleDayOfWeek">День недели:</label>
+                                <select id="ScheduleDayOfWeek" name="DayOfWeek" class="form-control" required>
+                                    <option value="">Выберите день</option>
+                                    <option value="Monday">Понедельник</option>
+                                    <option value="Tuesday">Вторник</option>
+                                    <option value="Wednesday">Среда</option>
+                                    <option value="Thursday">Четверг</option>
+                                    <option value="Friday">Пятница</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="ScheduleTime">Время:</label>
+                                <input type="time" id="ScheduleTime" name="Time" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="ScheduleSubject">Предмет:</label>
+                                <input type="text" id="ScheduleSubject" name="Subject" class="form-control" placeholder="Введите название предмета" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="ScheduleTeacherId">Преподаватель:</label>
+                                <select id="ScheduleTeacherId" name="TeacherId" class="form-control" required>
+                                    <option value="">Выберите преподавателя</option>
+                                    @foreach (var teacher in Model.Teachers)
+                                    {
+                                        <option value="@teacher.Id">@teacher.FullName</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="ScheduleRoom">Аудитория:</label>
+                                <input type="text" id="ScheduleRoom" name="Room" class="form-control" placeholder="Введите номер аудитории" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success">Добавить в расписание</button>
+                    </form>
+                </div>
+
+                <div class="form-section">
+                    <h3 class="section-title">Расписание занятий</h3>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Группа</th>
+                                    <th>День</th>
+                                    <th>Время</th>
+                                    <th>Предмет</th>
+                                    <th>Преподаватель</th>
+                                    <th>Аудитория</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var schedule in Model.Schedules)
+                                {
+                                    <tr>
+                                        <td>@schedule.GroupName</td>
+                                        <td>@schedule.DayOfWeek</td>
+                                        <td>@schedule.Time</td>
+                                        <td>@schedule.Subject</td>
+                                        <td>@schedule.TeacherName</td>
+                                        <td>@schedule.Room</td>
+                                        <td>
+                                            <form method="post" action="/Admin/DeleteSchedule" style="display: inline;">
+                                                <input type="hidden" name="id" value="@schedule.Id" />
+                                                <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Управление группами -->
+            <div id="groups" class="tab-content">
+                <div class="form-section">
+                    <h3 class="section-title">Создать группу</h3>
+                    <!-- ОТДЕЛЬНАЯ ФОРМА ДЛЯ ГРУПП -->
+                    <form method="post" action="/Admin/AddGroup">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="GroupName">Название группы:</label>
+                                <input type="text" id="GroupName" name="Name" class="form-control" placeholder="Например: 17-101" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="GroupCourse">Курс:</label>
+                                <select id="GroupCourse" name="Course" class="form-control" required>
+                                    <option value="">Выберите курс</option>
+                                    <option value="1">1 курс</option>
+                                    <option value="2">2 курс</option>
+                                    <option value="3">3 курс</option>
+                                    <option value="4">4 курс</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="GroupSpecialty">Специальность:</label>
+                                <input type="text" id="GroupSpecialty" name="Specialty" class="form-control" placeholder="Например: Программирование" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success">Создать группу</button>
+                    </form>
+                </div>
+
+                <div class="form-section">
+                    <h3 class="section-title">Список групп</h3>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Название</th>
+                                    <th>Курс</th>
+                                    <th>Специальность</th>
+                                    <th>Кол-во студентов</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var group in Model.Groups)
+                                {
+                                    <tr>
+                                        <td>@group.Name</td>
+                                        <td>@group.Course курс</td>
+                                        <td>@group.Specialty</td>
+                                        <td>@group.StudentCount</td>
+                                        <td>
+                                            <form method="post" action="/Admin/DeleteGroup" style="display: inline;">
+                                                <input type="hidden" name="id" value="@group.Id" />
+                                                <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Простая навигация по вкладкам
+        document.addEventListener('DOMContentLoaded', function() {
+            const navLinks = document.querySelectorAll('.nav-link');
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    // Убираем активный класс у всех ссылок
+                    navLinks.forEach(l => l.classList.remove('active'));
+
+                    // Добавляем активный класс текущей ссылке
+                    this.classList.add('active');
+
+                    // Скрываем все вкладки
+                    document.querySelectorAll('.tab-content').forEach(tab => {
+                        tab.classList.remove('active');
+                    });
+
+                    // Показываем выбранную вкладку
+                    const tabId = this.getAttribute('data-tab');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+        });
+
+        // Автоматическое скрытие уведомлений через 5 секунд
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.transition = 'opacity 0.5s ease';
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 500);
+            });
+        }, 5000);
+    </script>
+</body>

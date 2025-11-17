@@ -1,5 +1,7 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using journal.Models;
+using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Data.Common;
 namespace journal.Controllers
 {
     public class DateBaseConnection : IDisposable
@@ -15,7 +17,7 @@ namespace journal.Controllers
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 "source",
                 "repos");
-            return Path.Combine(repoPath, "journal", "journal", "Database1.mdf");
+            return Path.Combine(repoPath, "journalmane", "DataBase", "Database1.mdf");
         }
 
         private DateBaseConnection()
@@ -92,8 +94,10 @@ namespace journal.Controllers
 
     public class DataBaseManager : IDisposable
     {
+        
         private DateBaseConnection _dateBaseConnection;
         private bool _isConnectionOwned = false;
+        
 
         public DataBaseManager()
         {
@@ -118,7 +122,7 @@ namespace journal.Controllers
         }
 
         // Метод для аутентификации пользователя
-        public async Task<bool> AuthenticateUserAsync(string login, string hashedPassword)
+        public async Task<bool> AuthenticateStudentAsync(string login, string hashedPassword)
         {
             try
             {
@@ -138,6 +142,7 @@ namespace journal.Controllers
                 // Выполняем запрос
                 using var reader = await command.ExecuteReaderAsync();
                 return await reader.ReadAsync(); // true если пользователь найден
+                
             }
             catch (Exception ex)
             {
@@ -146,6 +151,126 @@ namespace journal.Controllers
                 return false;
             }
         }
+        public async Task<bool> AuthenticateTeacherAsync(string login, string hashedPassword)
+        {
+            try
+            {
+                // Проверяем, открыто ли соединение
+                if (_dateBaseConnection.GetConnectionState() != ConnectionState.Open)
+                {
+                    throw new InvalidOperationException("Соединение не открыто. Вызовите OpenConnection() сначала.");
+                }
+
+                // Создаем команду
+                using var command = _dateBaseConnection.CreateCommand(
+                    "SELECT * FROM TeacherLogin WHERE Login=@login AND Password=@password");
+
+                command.Parameters.AddWithValue("@login", login);
+                command.Parameters.AddWithValue("@password", hashedPassword);
+
+                // Выполняем запрос
+                using var reader = await command.ExecuteReaderAsync();
+                return await reader.ReadAsync(); // true если пользователь найден
+                
+            }
+            catch (Exception ex)
+            {
+                // Логируем ошибку
+                Console.WriteLine($"Ошибка аутентификации: {ex.Message}");
+                return false;
+            }
+        }
+        public async Task<bool> AuthenticateAdminAsync(string login, string inputpassword)
+        {
+           
+            try
+            {
+                // Проверяем, открыто ли соединение
+                if (_dateBaseConnection.GetConnectionState() != ConnectionState.Open)
+                {
+                    throw new InvalidOperationException("Соединение не открыто. Вызовите OpenConnection() сначала.");
+                }
+
+                // Создаем команду
+                using var command = _dateBaseConnection.CreateCommand(
+                    "SELECT * FROM AdminLogin WHERE Login=@login AND Password=@password");
+
+                command.Parameters.AddWithValue("@login", login);
+                command.Parameters.AddWithValue("@password", inputpassword);
+
+                // Выполняем запрос
+                using var reader = await command.ExecuteReaderAsync();
+                return await reader.ReadAsync(); // true если пользователь найден
+                
+            }
+            catch (Exception ex)
+            {
+                // Логируем ошибку
+                Console.WriteLine($"Ошибка аутентификации: {ex.Message}");
+                return false;
+            }
+        }
+        public async Task<bool> AddGroupAsync(Group group)
+        {
+            try
+            {
+                Console.WriteLine($"Добавление группы в БД: {group.Name}, {group.Course}, {group.Specialty}");
+
+                var query = "INSERT INTO Groups (Name, Course, Specialty, StudentCount) VALUES (@Name, @Course, @Specialty, @StudentCount)";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                {
+                    command.Parameters.AddWithValue("@Name", group.Name);
+                    command.Parameters.AddWithValue("@Course", group.Course);
+                    command.Parameters.AddWithValue("@Specialty", group.Specialty);
+                    command.Parameters.AddWithValue("@StudentCount", group.StudentCount);
+
+                    var result = await command.ExecuteNonQueryAsync();
+                    Console.WriteLine($"Результат выполнения: {result} строк добавлено");
+                    return result > 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при добавлении группы: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                return false;
+            }
+        }
+
+        // Метод для получения групп
+        public async Task<List<Group>> GetGroupsAsync()
+        {
+            var groups = new List<Group>();
+
+            try
+            {
+                var query = "SELECT Id, Name, Course, Specialty, StudentCount FROM Groups";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        groups.Add(new Group
+                        {
+                            Id = reader.GetInt32(0),
+                            Name = reader.GetString(1),
+                            Course = reader.GetInt32(2),
+                            Specialty = reader.GetString(3),
+                            StudentCount = reader.GetInt32(4)
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении групп: {ex.Message}");
+            }
+
+            return groups;
+        }
+
         public void Dispose()
         {
             CloseConnection();

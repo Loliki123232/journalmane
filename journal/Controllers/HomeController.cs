@@ -25,7 +25,7 @@ namespace journal.Controllers
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Login(User user)
+        public async Task<IActionResult> Student(User user)
         {
             if (!ModelState.IsValid)
                 return View(user);
@@ -36,7 +36,7 @@ namespace journal.Controllers
             using (var dbManager = new DataBaseManager())
             {
                 dbManager.OpenConnection();
-                bool isAuthenticated = await dbManager.AuthenticateUserAsync(user.login, hashedPassword);
+                bool isAuthenticated = await dbManager.AuthenticateStudentAsync(user.login, hashedPassword);
 
                 if (isAuthenticated)
                 {
@@ -45,6 +45,82 @@ namespace journal.Controllers
 
                 ModelState.AddModelError("", "Неверный логин или пароль");
                 return View(user);
+            }
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Teacher(User user)
+        {
+            if (!ModelState.IsValid)
+                return View(user);
+
+
+            string hashedPassword = _passwordHasher.HashPassword(user.password);
+
+            using (var dbManager = new DataBaseManager())
+            {
+                dbManager.OpenConnection();
+                bool isAuthenticated = await dbManager.AuthenticateTeacherAsync(user.login, hashedPassword);
+
+                if (isAuthenticated)
+                {
+                    return RedirectToAction("Dashboard");
+                }
+
+                ModelState.AddModelError("", "Неверный логин или пароль");
+                return View(user);
+            }
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Admin(User user)
+        {
+            Console.WriteLine($"Попытка входа: {user.login}");
+
+            if (!ModelState.IsValid)
+                return View("Login", user);
+
+            string password = user.password;
+
+            using (var dbManager = new DataBaseManager())
+            {
+                try
+                {
+                    dbManager.OpenConnection();
+                    bool isAuthenticated = await dbManager.AuthenticateAdminAsync(user.login, password);
+
+                    Console.WriteLine($"Результат: {isAuthenticated}");
+
+                    if (isAuthenticated)
+                    {
+                        return RedirectToAction("AdminBoard");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка БД: {ex.Message}");
+                }
+            }
+
+            ModelState.AddModelError("", "Неверный логин или пароль");
+            return View("Login", user);
+        }
+        public async Task<IActionResult> AdminBoard()
+        {
+            using (var dbManager = new DataBaseManager())
+            {
+                dbManager.OpenConnection();
+                var groups = await dbManager.GetGroupsAsync();
+
+                var model = new AdminDashboardViewModel
+                {
+                    Groups = groups,
+                    Students = new List<Student>(),
+                    Teachers = new List<Teacher>(),
+                    Schedules = new List<Schedule>()
+                };
+
+                return View(model);
             }
         }
 
