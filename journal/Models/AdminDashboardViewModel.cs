@@ -16,6 +16,7 @@ namespace journal.Models
         public int Id { get; set; }
         public string Login { get; set; }
         public string Password { get; set; }
+        public string Salt { get; set; }
         public string FullName { get; set; }
         public string GroupName { get; set; }
         public int GroupId { get; set; }
@@ -26,6 +27,7 @@ namespace journal.Models
         public int Id { get; set; }
         public string Login { get; set; }
         public string Password { get; set; }
+        public string Salt { get; set; }
         public string FullName { get; set; }
         public string Subject { get; set; }
     }
