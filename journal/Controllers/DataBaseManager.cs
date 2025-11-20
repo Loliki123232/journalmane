@@ -3,7 +3,6 @@ using journal.Services;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Data.Common;
-
 namespace journal.Controllers
 {
     public class DateBaseConnection : IDisposable
@@ -44,6 +43,7 @@ namespace journal.Controllers
             }
         }
 
+        // Метод для открытия соединения
         public void OpenConnection()
         {
             if (_connection.State != ConnectionState.Open)
@@ -52,6 +52,7 @@ namespace journal.Controllers
             }
         }
 
+        // Метод для закрытия соединения
         public void CloseConnection()
         {
             if (_connection.State != ConnectionState.Closed)
@@ -60,27 +61,32 @@ namespace journal.Controllers
             }
         }
 
+        // Получить текущее соединение
         public SqlConnection GetConnection()
         {
             return _connection;
         }
 
+        // Создать команду с текущим соединением
         public SqlCommand CreateCommand(string query)
         {
             return new SqlCommand(query, _connection);
         }
 
+        // Проверить состояние соединения
         public ConnectionState GetConnectionState()
         {
             return _connection.State;
         }
 
+        // Освобождение ресурсов
         public void Dispose()
         {
             CloseConnection();
             _connection?.Dispose();
         }
 
+        // Деструктор
         ~DateBaseConnection()
         {
             Dispose();
@@ -112,11 +118,6 @@ namespace journal.Controllers
                 _dateBaseConnection.CloseConnection();
                 _isConnectionOwned = false;
             }
-        }
-
-        public SqlConnection GetConnection()
-        {
-            return _dateBaseConnection.GetConnection();
         }
 
         // МЕТОДЫ АУТЕНТИФИКАЦИИ
@@ -179,73 +180,45 @@ namespace journal.Controllers
                 return false;
             }
         }
-
-        public async Task<bool> AuthenticateAdminAsync(string login, string password)
+        public async Task<bool> AuthenticateAdminAsync(string login, string inputpassword)
         {
+
             try
             {
+                // Проверяем, открыто ли соединение
                 if (_dateBaseConnection.GetConnectionState() != ConnectionState.Open)
                 {
                     throw new InvalidOperationException("Соединение не открыто. Вызовите OpenConnection() сначала.");
                 }
 
+                // Создаем команду
                 using var command = _dateBaseConnection.CreateCommand(
-                    "SELECT Password, Salt FROM AdminLogin WHERE Login = @login");
+                    "SELECT * FROM AdminLogin WHERE Login=@login AND Password=@password");
 
                 command.Parameters.AddWithValue("@login", login);
+                command.Parameters.AddWithValue("@password", inputpassword);
 
+                // Выполняем запрос
                 using var reader = await command.ExecuteReaderAsync();
-                if (await reader.ReadAsync())
-                {
-                    string storedHash = reader.GetString(0);
-                    string salt = reader.GetString(1);
-                    bool result = _passwordHasher.VerifyPassword(password, storedHash, salt);
-                    return result;
-                }
-                else
-                {
-                    Console.WriteLine($"Администратор с логином {login} не найден");
-                    return false;
-                }
+                return await reader.ReadAsync(); // true если пользователь найден
+
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка аутентификации администратора: {ex.Message}");
+                // Логируем ошибку
+                Console.WriteLine($"Ошибка аутентификации: {ex.Message}");
                 return false;
             }
         }
 
-        public async Task<bool> UpdateAdminPasswordAsync(string login, string password)
-        {
-            try
-            {
-                var (hash, salt) = _passwordHasher.HashPassword(password);
-
-                var deleteCommand = _dateBaseConnection.CreateCommand("DELETE FROM AdminLogin WHERE Login = @Login");
-                deleteCommand.Parameters.AddWithValue("@Login", login);
-                await deleteCommand.ExecuteNonQueryAsync();
-
-                var insertCommand = _dateBaseConnection.CreateCommand(
-                    "INSERT INTO AdminLogin (Login, Password, Salt) VALUES (@Login, @Password, @Salt)");
-
-                insertCommand.Parameters.AddWithValue("@Login", login);
-                insertCommand.Parameters.AddWithValue("@Password", hash);
-                insertCommand.Parameters.AddWithValue("@Salt", salt);
-
-                return await insertCommand.ExecuteNonQueryAsync() > 0;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при обновлении пароля администратора: {ex.Message}");
-                return false;
-            }
-        }
 
         // МЕТОДЫ ДЛЯ ГРУПП
         public async Task<bool> AddGroupAsync(Group group)
         {
             try
             {
+                Console.WriteLine($"Добавление группы в БД: {group.Name}, {group.Course}, {group.Specialty}");
+
                 var query = "INSERT INTO Groups (Name, Course, Specialty, StudentCount) VALUES (@Name, @Course, @Specialty, @StudentCount)";
 
                 using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
@@ -255,12 +228,15 @@ namespace journal.Controllers
                     command.Parameters.AddWithValue("@Specialty", group.Specialty ?? "");
                     command.Parameters.AddWithValue("@StudentCount", group.StudentCount);
 
-                    return await command.ExecuteNonQueryAsync() > 0;
+                    var result = await command.ExecuteNonQueryAsync();
+                    Console.WriteLine($"Результат выполнения: {result} строк добавлено");
+                    return result > 0;
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Ошибка при добавлении группы: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
                 return false;
             }
         }
@@ -268,6 +244,7 @@ namespace journal.Controllers
         public async Task<List<Group>> GetGroupsAsync()
         {
             var groups = new List<Group>();
+
             try
             {
                 var query = "SELECT Id, Name, Course, Specialty, StudentCount FROM Groups";
@@ -292,6 +269,7 @@ namespace journal.Controllers
             {
                 Console.WriteLine($"Ошибка при получении групп: {ex.Message}");
             }
+
             return groups;
         }
 
@@ -300,10 +278,12 @@ namespace journal.Controllers
             try
             {
                 var query = "DELETE FROM Groups WHERE Id = @Id";
+
                 using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
                 {
                     command.Parameters.AddWithValue("@Id", id);
-                    return await command.ExecuteNonQueryAsync() > 0;
+                    var result = await command.ExecuteNonQueryAsync();
+                    return result > 0;
                 }
             }
             catch (Exception ex)
@@ -318,7 +298,12 @@ namespace journal.Controllers
         {
             try
             {
+                Console.WriteLine($"Добавление студента в БД: {student.Login}, {student.FullName}, {student.GroupId}");
+
+                // Хешируем пароль
                 var (hash, salt) = _passwordHasher.HashPassword(student.Password);
+
+                // Получаем название группы для GroupName
                 var groupName = await GetGroupNameByIdAsync(student.GroupId);
 
                 var query = @"INSERT INTO Students (Login, Password, Salt, FullName, GroupId, GroupName) 
@@ -333,14 +318,15 @@ namespace journal.Controllers
                     command.Parameters.AddWithValue("@GroupId", student.GroupId);
                     command.Parameters.AddWithValue("@GroupName", groupName ?? "");
 
-                    var result = await command.ExecuteNonQueryAsync() > 0;
+                    var result = await command.ExecuteNonQueryAsync();
 
-                    if (result)
+                    // Обновляем счетчик студентов в группе
+                    if (result > 0)
                     {
                         await UpdateStudentCountAsync(student.GroupId);
                     }
 
-                    return result;
+                    return result > 0;
                 }
             }
             catch (Exception ex)
@@ -353,6 +339,7 @@ namespace journal.Controllers
         public async Task<List<Student>> GetStudentsAsync()
         {
             var students = new List<Student>();
+
             try
             {
                 var query = @"SELECT s.Id, s.Login, s.Password, s.Salt, s.FullName, s.GroupId, s.GroupName, g.Name 
@@ -380,33 +367,31 @@ namespace journal.Controllers
             {
                 Console.WriteLine($"Ошибка при получении студентов: {ex.Message}");
             }
-            return students;
-        }
 
-        public async Task<List<Student>> GetStudentsByGroupAsync(int groupId)
-        {
-            var allStudents = await GetStudentsAsync();
-            return allStudents.Where(s => s.GroupId == groupId).ToList();
+            return students;
         }
 
         public async Task<bool> DeleteStudentAsync(int id)
         {
             try
             {
+                // Сначала получаем GroupId студента для обновления счетчика
                 var groupId = await GetStudentGroupIdAsync(id);
+
                 var query = "DELETE FROM Students WHERE Id = @Id";
 
                 using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
                 {
                     command.Parameters.AddWithValue("@Id", id);
-                    var result = await command.ExecuteNonQueryAsync() > 0;
+                    var result = await command.ExecuteNonQueryAsync();
 
-                    if (result && groupId > 0)
+                    // Обновляем счетчик студентов в группе
+                    if (result > 0 && groupId > 0)
                     {
                         await UpdateStudentCountAsync(groupId);
                     }
 
-                    return result;
+                    return result > 0;
                 }
             }
             catch (Exception ex)
@@ -421,6 +406,9 @@ namespace journal.Controllers
         {
             try
             {
+                Console.WriteLine($"Добавление преподавателя в БД: {teacher.Login}, {teacher.FullName}, {teacher.Subject}");
+
+                // Хешируем пароль
                 var (hash, salt) = _passwordHasher.HashPassword(teacher.Password);
 
                 var query = @"INSERT INTO Teachers (Login, Password, Salt, FullName, Subject) 
@@ -434,7 +422,8 @@ namespace journal.Controllers
                     command.Parameters.AddWithValue("@FullName", teacher.FullName ?? "");
                     command.Parameters.AddWithValue("@Subject", teacher.Subject ?? "");
 
-                    return await command.ExecuteNonQueryAsync() > 0;
+                    var result = await command.ExecuteNonQueryAsync();
+                    return result > 0;
                 }
             }
             catch (Exception ex)
@@ -447,6 +436,7 @@ namespace journal.Controllers
         public async Task<List<Teacher>> GetTeachersAsync()
         {
             var teachers = new List<Teacher>();
+
             try
             {
                 var query = "SELECT Id, Login, Password, Salt, FullName, Subject FROM Teachers";
@@ -471,6 +461,7 @@ namespace journal.Controllers
             {
                 Console.WriteLine($"Ошибка при получении преподавателей: {ex.Message}");
             }
+
             return teachers;
         }
 
@@ -479,10 +470,12 @@ namespace journal.Controllers
             try
             {
                 var query = "DELETE FROM Teachers WHERE Id = @Id";
+
                 using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
                 {
                     command.Parameters.AddWithValue("@Id", id);
-                    return await command.ExecuteNonQueryAsync() > 0;
+                    var result = await command.ExecuteNonQueryAsync();
+                    return result > 0;
                 }
             }
             catch (Exception ex)
@@ -497,6 +490,9 @@ namespace journal.Controllers
         {
             try
             {
+                Console.WriteLine($"Добавление расписания в БД: GroupId={schedule.GroupId}, Day={schedule.DayOfWeek}, Time={schedule.Time}");
+
+                // Получаем названия группы и преподавателя
                 var groupName = await GetGroupNameByIdAsync(schedule.GroupId);
                 var teacherName = await GetTeacherNameByIdAsync(schedule.TeacherId);
 
@@ -514,7 +510,8 @@ namespace journal.Controllers
                     command.Parameters.AddWithValue("@TeacherName", teacherName ?? "");
                     command.Parameters.AddWithValue("@Room", schedule.Room ?? "");
 
-                    return await command.ExecuteNonQueryAsync() > 0;
+                    var result = await command.ExecuteNonQueryAsync();
+                    return result > 0;
                 }
             }
             catch (Exception ex)
@@ -527,6 +524,7 @@ namespace journal.Controllers
         public async Task<List<Schedule>> GetScheduleAsync()
         {
             var schedules = new List<Schedule>();
+
             try
             {
                 var query = @"SELECT Id, GroupId, GroupName, DayOfWeek, Time, Subject, TeacherId, TeacherName, Room 
@@ -565,6 +563,7 @@ namespace journal.Controllers
             {
                 Console.WriteLine($"Ошибка при получении расписания: {ex.Message}");
             }
+
             return schedules;
         }
 
@@ -573,10 +572,12 @@ namespace journal.Controllers
             try
             {
                 var query = "DELETE FROM Schedule WHERE Id = @Id";
+
                 using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
                 {
                     command.Parameters.AddWithValue("@Id", id);
-                    return await command.ExecuteNonQueryAsync() > 0;
+                    var result = await command.ExecuteNonQueryAsync();
+                    return result > 0;
                 }
             }
             catch (Exception ex)
@@ -584,380 +585,6 @@ namespace journal.Controllers
                 Console.WriteLine($"Ошибка при удалении расписания: {ex.Message}");
                 return false;
             }
-        }
-
-        // МЕТОДЫ ДЛЯ ЗАДАНИЙ
-        public async Task<bool> AddAssignmentAsync(Assignment assignment)
-        {
-            try
-            {
-                var query = @"INSERT INTO Assignments (Title, Description, Subject, TeacherId, GroupId, DueDate, FilePath, CreatedAt) 
-                     VALUES (@Title, @Description, @Subject, @TeacherId, @GroupId, @DueDate, @FilePath, @CreatedAt)";
-
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@Title", assignment.Title ?? "");
-                    command.Parameters.AddWithValue("@Description", assignment.Description ?? "");
-                    command.Parameters.AddWithValue("@Subject", assignment.Subject ?? "");
-                    command.Parameters.AddWithValue("@TeacherId", assignment.TeacherId);
-                    command.Parameters.AddWithValue("@GroupId", assignment.GroupId);
-                    command.Parameters.AddWithValue("@DueDate", assignment.DueDate);
-                    command.Parameters.AddWithValue("@FilePath", assignment.FilePath ?? "");
-                    command.Parameters.AddWithValue("@CreatedAt", assignment.CreatedAt);
-
-                    return await command.ExecuteNonQueryAsync() > 0;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при добавлении задания: {ex.Message}");
-                return false;
-            }
-        }
-
-        public async Task<List<Assignment>> GetAssignmentsByTeacherAsync(int teacherId)
-        {
-            var assignments = new List<Assignment>();
-            try
-            {
-                var query = @"SELECT a.*, t.FullName as TeacherName, g.Name as GroupName 
-                     FROM Assignments a
-                     LEFT JOIN Teachers t ON a.TeacherId = t.Id
-                     LEFT JOIN Groups g ON a.GroupId = g.Id
-                     WHERE a.TeacherId = @TeacherId
-                     ORDER BY a.DueDate DESC";
-
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@TeacherId", teacherId);
-                    using var reader = await command.ExecuteReaderAsync();
-
-                    while (await reader.ReadAsync())
-                    {
-                        assignments.Add(new Assignment
-                        {
-                            Id = reader.GetInt32(0),
-                            Title = reader.GetString(1),
-                            Description = reader.IsDBNull(2) ? "" : reader.GetString(2),
-                            Subject = reader.GetString(3),
-                            TeacherId = reader.GetInt32(4),
-                            GroupId = reader.GetInt32(5),
-                            DueDate = reader.GetDateTime(6),
-                            FilePath = reader.IsDBNull(7) ? "" : reader.GetString(7),
-                            CreatedAt = reader.GetDateTime(8),
-                            TeacherName = reader.GetString(9),
-                            GroupName = reader.GetString(10)
-                        });
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при получении заданий преподавателя: {ex.Message}");
-            }
-            return assignments;
-        }
-
-        public async Task<List<Assignment>> GetAssignmentsByGroupAsync(int groupId)
-        {
-            var assignments = new List<Assignment>();
-            try
-            {
-                var query = @"SELECT a.*, t.FullName as TeacherName, g.Name as GroupName 
-                     FROM Assignments a
-                     LEFT JOIN Teachers t ON a.TeacherId = t.Id
-                     LEFT JOIN Groups g ON a.GroupId = g.Id
-                     WHERE a.GroupId = @GroupId
-                     ORDER BY a.DueDate DESC";
-
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@GroupId", groupId);
-                    using var reader = await command.ExecuteReaderAsync();
-
-                    while (await reader.ReadAsync())
-                    {
-                        assignments.Add(new Assignment
-                        {
-                            Id = reader.GetInt32(0),
-                            Title = reader.GetString(1),
-                            Description = reader.IsDBNull(2) ? "" : reader.GetString(2),
-                            Subject = reader.GetString(3),
-                            TeacherId = reader.GetInt32(4),
-                            GroupId = reader.GetInt32(5),
-                            DueDate = reader.GetDateTime(6),
-                            FilePath = reader.IsDBNull(7) ? "" : reader.GetString(7),
-                            CreatedAt = reader.GetDateTime(8),
-                            TeacherName = reader.GetString(9),
-                            GroupName = reader.GetString(10)
-                        });
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при получении заданий: {ex.Message}");
-            }
-            return assignments;
-        }
-
-        public async Task<bool> DeleteAssignmentAsync(int assignmentId, int teacherId)
-        {
-            try
-            {
-                var query = "DELETE FROM Assignments WHERE Id = @Id AND TeacherId = @TeacherId";
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@Id", assignmentId);
-                    command.Parameters.AddWithValue("@TeacherId", teacherId);
-                    return await command.ExecuteNonQueryAsync() > 0;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при удалении задания: {ex.Message}");
-                return false;
-            }
-        }
-
-        // МЕТОДЫ ДЛЯ ОТПРАВОК
-        public async Task<bool> AddSubmissionAsync(Submission submission)
-        {
-            try
-            {
-                var query = @"INSERT INTO Submissions (AssignmentId, StudentId, FilePath, SubmittedAt) 
-                     VALUES (@AssignmentId, @StudentId, @FilePath, @SubmittedAt)";
-
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@AssignmentId", submission.AssignmentId);
-                    command.Parameters.AddWithValue("@StudentId", submission.StudentId);
-                    command.Parameters.AddWithValue("@FilePath", submission.FilePath ?? "");
-                    command.Parameters.AddWithValue("@SubmittedAt", DateTime.Now);
-
-                    return await command.ExecuteNonQueryAsync() > 0;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при добавлении решения: {ex.Message}");
-                return false;
-            }
-        }
-
-        public async Task<List<Submission>> GetSubmissionsByAssignmentAsync(int assignmentId)
-        {
-            var submissions = new List<Submission>();
-            try
-            {
-                var query = @"SELECT s.*, st.FullName as StudentName, a.Title as AssignmentTitle
-                     FROM Submissions s
-                     LEFT JOIN Students st ON s.StudentId = st.Id
-                     LEFT JOIN Assignments a ON s.AssignmentId = a.Id
-                     WHERE s.AssignmentId = @AssignmentId";
-
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@AssignmentId", assignmentId);
-                    using var reader = await command.ExecuteReaderAsync();
-
-                    while (await reader.ReadAsync())
-                    {
-                        submissions.Add(new Submission
-                        {
-                            Id = reader.GetInt32(0),
-                            AssignmentId = reader.GetInt32(1),
-                            StudentId = reader.GetInt32(2),
-                            FilePath = reader.GetString(3),
-                            SubmittedAt = reader.GetDateTime(4),
-                            Grade = reader.IsDBNull(5) ? null : reader.GetInt32(5),
-                            Feedback = reader.IsDBNull(6) ? "" : reader.GetString(6),
-                            StudentName = reader.GetString(7),
-                            AssignmentTitle = reader.GetString(8)
-                        });
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при получении отправок: {ex.Message}");
-            }
-            return submissions;
-        }
-
-        public async Task<bool> UpdateSubmissionGradeAsync(int submissionId, int grade)
-        {
-            try
-            {
-                var query = "UPDATE Submissions SET Grade = @Grade WHERE Id = @Id";
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@Grade", grade);
-                    command.Parameters.AddWithValue("@Id", submissionId);
-                    return await command.ExecuteNonQueryAsync() > 0;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при обновлении оценки: {ex.Message}");
-                return false;
-            }
-        }
-
-        public async Task<bool> UpdateSubmissionFeedbackAsync(int submissionId, string feedback)
-        {
-            try
-            {
-                var query = "UPDATE Submissions SET Feedback = @Feedback WHERE Id = @Id";
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@Feedback", feedback ?? "");
-                    command.Parameters.AddWithValue("@Id", submissionId);
-                    return await command.ExecuteNonQueryAsync() > 0;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при обновлении комментария: {ex.Message}");
-                return false;
-            }
-        }
-
-        // МЕТОДЫ ДЛЯ ОЦЕНОК
-        public async Task<bool> AddGradeAsync(Grade grade)
-        {
-            try
-            {
-                var query = @"INSERT INTO Grades (StudentId, Subject, GradeValue, GradeType, Date, TeacherId, Comments) 
-                     VALUES (@StudentId, @Subject, @GradeValue, @GradeType, @Date, @TeacherId, @Comments)";
-
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@StudentId", grade.StudentId);
-                    command.Parameters.AddWithValue("@Subject", grade.Subject ?? "");
-                    command.Parameters.AddWithValue("@GradeValue", grade.GradeValue);
-                    command.Parameters.AddWithValue("@GradeType", grade.GradeType ?? "");
-                    command.Parameters.AddWithValue("@Date", grade.Date);
-                    command.Parameters.AddWithValue("@TeacherId", grade.TeacherId);
-                    command.Parameters.AddWithValue("@Comments", grade.Comments ?? "");
-
-                    return await command.ExecuteNonQueryAsync() > 0;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при добавлении оценки: {ex.Message}");
-                return false;
-            }
-        }
-
-        public async Task<List<Grade>> GetGradesByStudentAsync(int studentId)
-        {
-            var grades = new List<Grade>();
-            try
-            {
-                var query = @"SELECT g.*, s.FullName as StudentName 
-                     FROM Grades g
-                     LEFT JOIN Students s ON g.StudentId = s.Id
-                     WHERE g.StudentId = @StudentId
-                     ORDER BY g.Date DESC";
-
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@StudentId", studentId);
-                    using var reader = await command.ExecuteReaderAsync();
-
-                    while (await reader.ReadAsync())
-                    {
-                        grades.Add(new Grade
-                        {
-                            Id = reader.GetInt32(0),
-                            StudentId = reader.GetInt32(1),
-                            Subject = reader.GetString(2),
-                            GradeValue = reader.GetInt32(3),
-                            GradeType = reader.GetString(4),
-                            Date = reader.GetDateTime(5),
-                            TeacherId = reader.GetInt32(6),
-                            Comments = reader.IsDBNull(7) ? "" : reader.GetString(7),
-                            StudentName = reader.GetString(8)
-                        });
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при получении оценок: {ex.Message}");
-            }
-            return grades;
-        }
-
-        // МЕТОДЫ ДЛЯ ПОСЕЩАЕМОСТИ
-        public async Task<bool> AddAttendanceAsync(AttendanceRecord attendance)
-        {
-            try
-            {
-                var query = @"INSERT INTO Attendance (StudentId, ScheduleId, Date, IsPresent, RecordedBy, RecordedAt) 
-                     VALUES (@StudentId, @ScheduleId, @Date, @IsPresent, @RecordedBy, @RecordedAt)";
-
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@StudentId", attendance.StudentId);
-                    command.Parameters.AddWithValue("@ScheduleId", attendance.ScheduleId);
-                    command.Parameters.AddWithValue("@Date", attendance.Date);
-                    command.Parameters.AddWithValue("@IsPresent", attendance.IsPresent);
-                    command.Parameters.AddWithValue("@RecordedBy", attendance.RecordedBy);
-                    command.Parameters.AddWithValue("@RecordedAt", DateTime.Now);
-
-                    return await command.ExecuteNonQueryAsync() > 0;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при добавлении посещаемости: {ex.Message}");
-                return false;
-            }
-        }
-
-        public async Task<List<AttendanceRecord>> GetAttendanceByDateAndGroupAsync(int groupId, DateTime date, string subject)
-        {
-            var attendanceRecords = new List<AttendanceRecord>();
-            try
-            {
-                var query = @"SELECT a.*, s.FullName as StudentName, sch.Subject
-                     FROM Attendance a
-                     LEFT JOIN Students s ON a.StudentId = s.Id
-                     LEFT JOIN Schedule sch ON a.ScheduleId = sch.Id
-                     WHERE s.GroupId = @GroupId AND a.Date = @Date AND sch.Subject = @Subject";
-
-                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
-                {
-                    command.Parameters.AddWithValue("@GroupId", groupId);
-                    command.Parameters.AddWithValue("@Date", date.Date);
-                    command.Parameters.AddWithValue("@Subject", subject);
-
-                    using var reader = await command.ExecuteReaderAsync();
-                    while (await reader.ReadAsync())
-                    {
-                        attendanceRecords.Add(new AttendanceRecord
-                        {
-                            Id = reader.GetInt32(0),
-                            StudentId = reader.GetInt32(1),
-                            ScheduleId = reader.GetInt32(2),
-                            Date = reader.GetDateTime(3),
-                            IsPresent = reader.GetBoolean(4),
-                            RecordedBy = reader.GetInt32(5),
-                            RecordedAt = reader.GetDateTime(6),
-                            StudentName = reader.GetString(7),
-                            Subject = reader.GetString(8)
-                        });
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при получении посещаемости: {ex.Message}");
-            }
-            return attendanceRecords;
         }
 
         // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ

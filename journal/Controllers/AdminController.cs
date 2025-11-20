@@ -1,8 +1,5 @@
 ﻿using journal.Models;
-using journal.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
-using System.Data;
 
 namespace journal.Controllers
 {

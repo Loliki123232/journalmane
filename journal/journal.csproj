@@ -14,9 +14,4 @@
     <ProjectReference Include="..\DataBase\DataBase.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="wwwroot\uploads\assignments\" />
-    <Folder Include="wwwroot\uploads\solutions\" />
-  </ItemGroup>
-
 </Project>
