@@ -31,7 +31,15 @@ namespace journal.Services
         {
             try
             {
+                Console.WriteLine($"=== ПРОВЕРКА ПАРОЛЯ ===");
+                Console.WriteLine($"Введенный пароль: '{password}'");
+                Console.WriteLine($"Длина пароля: {password.Length}");
+                Console.WriteLine($"Хеш из БД: '{hashedPassword}'");
+                Console.WriteLine($"Соль из БД: '{salt}'");
+                Console.WriteLine($"Длина соли: {salt.Length}");
+
                 byte[] saltBytes = Convert.FromBase64String(salt);
+                Console.WriteLine($"Соль в байтах: {BitConverter.ToString(saltBytes)}");
 
                 string computedHash = Convert.ToBase64String(KeyDerivation.Pbkdf2(
                     password: password,
@@ -40,10 +48,20 @@ namespace journal.Services
                     iterationCount: 100000,
                     numBytesRequested: 256 / 8));
 
-                return computedHash == hashedPassword;
+                Console.WriteLine($"Вычисленный хеш: '{computedHash}'");
+                Console.WriteLine($"Длина вычисленного хеша: {computedHash.Length}");
+                Console.WriteLine($"Длина хеша из БД: {hashedPassword.Length}");
+
+                bool result = computedHash == hashedPassword;
+                Console.WriteLine($"Результат сравнения: {result}");
+                Console.WriteLine($"=== КОНЕЦ ПРОВЕРКИ ===\n");
+
+                return result;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"Ошибка в VerifyPassword: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
                 return false;
             }
         }
