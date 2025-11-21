@@ -36,16 +36,19 @@
                 <label asp-for="rememberMe" for="remember">Запомнить меня</label>
             </div>
 
-            <div class="button-group">
-                <button type="submit" formaction="@Url.Action("Student")" class="login-button" aria-label="Войти в систему">
-                    Войти как студент
-                </button>
-                <button type="submit" formaction="@Url.Action("Teacher")" class="teacher-button" aria-label="Войти как преподаватель">
-                    Войти как преподаватель
-                </button>
-                <button type="submit" formaction="@Url.Action("Admin")" class="admin-button" aria-label="Войти как администратор">
-                    Войти как администратор
-                </button>
+            <!-- Компактный выбор роли -->
+            <div class="role-selection">
+                <div class="role-buttons">
+                    <button type="submit" formaction="@Url.Action("Student")" class="role-btn student-btn" data-role="student">
+                        Студент
+                    </button>
+                    <button type="submit" formaction="@Url.Action("Teacher")" class="role-btn teacher-btn" data-role="teacher">
+                        Преподаватель
+                    </button>
+                    <button type="submit" formaction="@Url.Action("Admin")" class="role-btn admin-btn" data-role="admin">
+                        Администратор
+                    </button>
+                </div>
             </div>
         </form>
     </div>
@@ -53,21 +56,35 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const loginForm = document.getElementById('loginForm');
+            const roleButtons = document.querySelectorAll('.role-btn');
 
-            // Обработка отправки формы
-            loginForm.addEventListener('submit', function(e) {
-                const username = document.getElementById('login').value;
-                const password = document.getElementById('password').value;
+            // Обработка выбора роли
+            roleButtons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    const username = document.getElementById('login').value;
+                    const password = document.getElementById('password').value;
+                    const role = this.getAttribute('data-role');
 
-                // Валидация
-                if (!username.trim() || !password.trim()) {
-                    e.preventDefault();
-                    showMessage('Пожалуйста, заполните все поля', 'error');
-                    return;
-                }
+                    // Валидация
+                    if (!username.trim() || !password.trim()) {
+                        e.preventDefault();
+                        showMessage('Пожалуйста, заполните все поля', 'error');
+                        return;
+                    }
 
-                showMessage('Вход выполняется...', 'success');
+                    showMessage(`Вход как ${getRoleName(role)}...`, 'success');
+                });
             });
+
+            // Функция для получения названия роли
+            function getRoleName(role) {
+                const roles = {
+                    'student': 'студент',
+                    'teacher': 'преподаватель',
+                    'admin': 'администратор'
+                };
+                return roles[role] || 'пользователь';
+            }
 
             // Функция показа сообщений
             function showMessage(message, type) {
@@ -93,7 +110,7 @@
                     animation: slideDown 0.3s ease;
                     max-width: 90%;
                     text-align: center;
-                    background: ${type === 'error' ? '#ff4444' : type === 'success' ? '#4CAF50' : '#2196F3'};
+                    background: ${type === 'error' ? '#E53E3E' : type === 'success' ? '#38A169' : '#1E40AF'};
                 `;
 
                 document.body.appendChild(messageEl);
@@ -123,7 +140,6 @@
         });
     </script>
 
-    <!-- Остальные стили остаются без изменений -->
     <style>
         * {
             margin: 0;
@@ -132,41 +148,49 @@
         }
 
         :root {
-            --primary-red: #ff4444;
-            --dark-red: #cc0000;
-            --light-red: #ff6666;
-            --admin-purple: #8B46FF;
-            --admin-dark: #6B30CC;
-            --white: #ffffff;
-            --gray-light: #f5f5f5;
-            --gray-medium: #666;
-            --gray-dark: #333;
+            --primary-blue: #1E40AF;
+            --dark-blue: #1E3A8A;
+            --bright-blue: #3B82F6;
+            --accent-blue: #2563EB;
+            --accent-dark: #1D4ED8;
+            --admin-purple: #7C3AED;
+            --admin-dark: #6D28D9;
+            --bg-dark: #0F172A;
+            --card-dark: #1E293B;
+            --card-darker: #1A2332;
+            --text-light: #F1F5F9;
+            --text-muted: #94A3B8;
+            --border-dark: #334155;
+            --border-darker: #475569;
             --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            --shadow-hover: 0 5px 15px rgba(255, 68, 68, 0.4);
-            --shadow-admin: 0 5px 15px rgba(139, 70, 255, 0.4);
-            --border-radius: 15px;
+            --shadow-hover: 0 5px 15px rgba(59, 130, 246, 0.3);
+            --shadow-admin: 0 5px 15px rgba(124, 58, 237, 0.3);
+            --border-radius: 12px;
             --transition: all 0.3s ease;
         }
 
         body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, var(--primary-red) 0%, var(--light-red) 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #0A0F1C 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
             line-height: 1.6;
+            color: var(--text-light);
         }
 
         .login-container {
-            background: var(--white);
+            background: var(--card-dark);
             padding: clamp(25px, 5vw, 40px);
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
             width: 100%;
             max-width: min(400px, 90vw);
             transition: var(--transition);
+            border: 1px solid var(--border-dark);
+            backdrop-filter: blur(10px);
         }
 
         .login-header {
@@ -175,15 +199,16 @@
         }
 
             .login-header h1 {
-                color: var(--primary-red);
+                color: var(--bright-blue);
                 font-size: clamp(24px, 5vw, 28px);
                 margin-bottom: clamp(8px, 2vw, 10px);
                 font-weight: 700;
                 line-height: 1.2;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
             }
 
             .login-header p {
-                color: var(--gray-medium);
+                color: var(--text-muted);
                 font-size: clamp(13px, 3vw, 14px);
                 line-height: 1.4;
             }
@@ -195,7 +220,7 @@
             .form-group label {
                 display: block;
                 margin-bottom: clamp(4px, 1vw, 5px);
-                color: var(--gray-dark);
+                color: var(--text-light);
                 font-weight: 600;
                 font-size: clamp(14px, 3vw, 16px);
             }
@@ -204,19 +229,28 @@
             .form-group input[type="password"] {
                 width: 100%;
                 padding: clamp(10px, 2.5vw, 12px) clamp(12px, 3vw, 15px);
-                border: 2px solid #ddd;
+                border: 2px solid var(--border-dark);
                 border-radius: 8px;
                 font-size: clamp(14px, 3vw, 16px);
                 transition: var(--transition);
-                background: var(--white);
+                background: var(--card-darker);
+                color: var(--text-light);
+                border-color: var(--border-darker);
             }
 
                 .form-group input[type="text"]:focus,
                 .form-group input[type="password"]:focus {
                     outline: none;
-                    border-color: var(--primary-red);
-                    box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.1);
+                    border-color: var(--bright-blue);
+                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
                     transform: translateY(-1px);
+                    background: var(--card-darker);
+                }
+
+                .form-group input[type="text"]::placeholder,
+                .form-group input[type="password"]::placeholder {
+                    color: var(--text-muted);
+                    opacity: 0.7;
                 }
 
         .remember-group {
@@ -230,115 +264,85 @@
                 margin-right: 10px;
                 width: clamp(16px, 4vw, 18px);
                 height: clamp(16px, 4vw, 18px);
-                accent-color: var(--primary-red);
+                accent-color: var(--bright-blue);
                 flex-shrink: 0;
             }
 
             .remember-group label {
-                color: var(--gray-medium);
+                color: var(--text-muted);
                 cursor: pointer;
                 font-size: clamp(14px, 3vw, 16px);
                 user-select: none;
             }
 
-        .button-group {
+        /* Компактный выбор роли */
+        .role-selection {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-dark);
+        }
+
+        .role-buttons {
             display: flex;
-            flex-direction: column;
-            gap: clamp(10px, 2vw, 15px);
+            gap: 8px;
+            justify-content: center;
         }
 
-        .login-button {
-            width: 100%;
-            background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
-            color: var(--white);
-            border: none;
-            padding: clamp(12px, 3vw, 15px);
-            border-radius: 8px;
-            font-size: clamp(14px, 3vw, 16px);
-            font-weight: bold;
+        .role-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-dark);
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
             cursor: pointer;
             transition: var(--transition);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            position: relative;
-            overflow: hidden;
+            text-align: center;
+            background: var(--card-darker);
+            color: var(--text-light);
+            min-height: 36px;
         }
 
-            .login-button:hover {
-                background: linear-gradient(135deg, var(--dark-red) 0%, var(--primary-red) 100%);
-                transform: translateY(-2px);
-                box-shadow: var(--shadow-hover);
-            }
-
-            .login-button:active {
-                transform: translateY(0);
-            }
-
-            .login-button:focus {
-                outline: none;
-                box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.3);
-            }
-
-        .teacher-button {
-            width: 100%;
-            background: var(--white);
-            color: var(--primary-red);
-            border: 2px solid var(--primary-red);
-            padding: clamp(12px, 3vw, 15px);
-            border-radius: 8px;
-            font-size: clamp(14px, 3vw, 16px);
-            font-weight: bold;
-            cursor: pointer;
-            transition: var(--transition);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        .student-btn {
+            color: var(--bright-blue);
+            border-color: var(--bright-blue);
+            background: rgba(59, 130, 246, 0.1);
         }
 
-            .teacher-button:hover {
-                background: var(--primary-red);
-                color: var(--white);
-                transform: translateY(-2px);
+            .student-btn:hover {
+                background: var(--bright-blue);
+                color: var(--text-light);
+                transform: translateY(-1px);
                 box-shadow: var(--shadow-hover);
+                border-color: var(--bright-blue);
             }
 
-            .teacher-button:active {
-                transform: translateY(0);
+        .teacher-btn {
+            color: var(--accent-blue);
+            border-color: var(--accent-blue);
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+            .teacher-btn:hover {
+                background: var(--accent-blue);
+                color: var(--text-light);
+                transform: translateY(-1px);
+                box-shadow: var(--shadow-hover);
+                border-color: var(--accent-blue);
             }
 
-            .teacher-button:focus {
-                outline: none;
-                box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.3);
-            }
-
-        .admin-button {
-            width: 100%;
-            background: var(--white);
+        .admin-btn {
             color: var(--admin-purple);
-            border: 2px solid var(--admin-purple);
-            padding: clamp(12px, 3vw, 15px);
-            border-radius: 8px;
-            font-size: clamp(14px, 3vw, 16px);
-            font-weight: bold;
-            cursor: pointer;
-            transition: var(--transition);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            border-color: var(--admin-purple);
+            background: rgba(124, 58, 237, 0.1);
         }
 
-            .admin-button:hover {
-                background: linear-gradient(135deg, var(--admin-purple) 0%, var(--admin-dark) 100%);
-                color: var(--white);
-                transform: translateY(-2px);
+            .admin-btn:hover {
+                background: var(--admin-purple);
+                color: var(--text-light);
+                transform: translateY(-1px);
                 box-shadow: var(--shadow-admin);
-            }
-
-            .admin-button:active {
-                transform: translateY(0);
-            }
-
-            .admin-button:focus {
-                outline: none;
-                box-shadow: 0 0 0 3px rgba(139, 70, 255, 0.3);
+                border-color: var(--admin-purple);
             }
 
         /* Анимации */
@@ -366,11 +370,16 @@
 
             .login-container {
                 padding: 20px 15px;
-                border-radius: 12px;
+                border-radius: 10px;
             }
 
-            .button-group {
-                gap: 8px;
+            .role-buttons {
+                gap: 6px;
+            }
+
+            .role-btn {
+                font-size: 11px;
+                padding: 6px 8px;
             }
         }
 
@@ -394,72 +403,8 @@
 
                 .login-container:hover {
                     transform: translateY(-5px);
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
                 }
-        }
-
-        /* Портретная ориентация мобильных */
-        @@media (max-height: 600px) and (orientation: portrait) {
-            body {
-                align-items: flex-start;
-                padding-top: 40px;
-                min-height: auto;
-            }
-
-            .login-container {
-                margin: 20px 0;
-            }
-        }
-
-        /* Ландшафтная ориентация мобильных */
-        @@media (max-height: 500px) and (orientation: landscape) {
-            body {
-                padding: 10px;
-                align-items: flex-start;
-            }
-
-            .login-container {
-                max-width: 90%;
-                margin: 10px 0;
-            }
-
-            .form-group {
-                margin-bottom: 12px;
-            }
-
-            .remember-group {
-                margin-bottom: 15px;
-            }
-        }
-
-        /* Поддержка темной темы */
-        @@media (prefers-color-scheme: dark) {
-            .login-container {
-                background: #2d2d2d;
-            }
-
-            .form-group label {
-                color: #e0e0e0;
-            }
-
-            .form-group input[type="text"],
-            .form-group input[type="password"] {
-                background: #3d3d3d;
-                border-color: #555;
-                color: #fff;
-            }
-
-            .login-header p {
-                color: #aaa;
-            }
-
-            .remember-group label {
-                color: #aaa;
-            }
-
-            .teacher-button,
-            .admin-button {
-                background: #3d3d3d;
-            }
         }
 
         /* Улучшения для доступности */
@@ -472,12 +417,30 @@
         }
 
         /* Фокус для клавиатурной навигации */
-        .login-button:focus-visible,
-        .teacher-button:focus-visible,
-        .admin-button:focus-visible,
+        .role-btn:focus-visible,
         input:focus-visible {
-            outline: 2px solid var(--primary-red);
+            outline: 2px solid var(--bright-blue);
             outline-offset: 2px;
+        }
+
+        /* Стили для сообщений об ошибках валидации */
+        .text-danger {
+            color: #F87171 !important;
+            font-size: 14px;
+            margin-top: 5px;
+            display: block;
+        }
+
+        /* Улучшение контрастности для доступности */
+        @@media (prefers-contrast: high) {
+            .login-container {
+                border: 2px solid var(--bright-blue);
+            }
+
+            .form-group input[type="text"],
+            .form-group input[type="password"] {
+                border-width: 2px;
+            }
         }
     </style>
 </body>
