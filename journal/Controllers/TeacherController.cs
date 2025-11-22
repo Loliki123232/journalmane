@@ -31,12 +31,13 @@ namespace journal.Controllers
             {
                 _dbManager.OpenConnection();
 
-                var teacher = _dbManager.GetTeachersAsync().Result.FirstOrDefault(t => t.Id == teacherId);
-                var groups = _dbManager.GetGroupsAsync().Result;
-                var students = _dbManager.GetStudentsAsync().Result;
-                var assignments = _dbManager.GetAssignmentsByTeacherAsync(teacherId).Result;
-                var submissions = GetSubmissionsForTeacher(teacherId);
-                var schedule = _dbManager.GetScheduleAsync().Result.Where(s => s.TeacherId == teacherId).ToList();
+                var teacher = (await _dbManager.GetTeachersAsync()).FirstOrDefault(t => t.Id == teacherId);
+                var groups = await _dbManager.GetGroupsAsync();
+                var students = await _dbManager.GetStudentsAsync();
+                var assignments = await _dbManager.GetAssignmentsByTeacherAsync(teacherId);
+                var submissions = await GetSubmissionsForTeacher(teacherId);
+                var allSchedules = await _dbManager.GetScheduleAsync();
+                var schedule = allSchedules.Where(s => s.TeacherId == teacherId).ToList();
 
                 var viewModel = new TeacherDashboardViewModel
                 {
@@ -48,7 +49,6 @@ namespace journal.Controllers
                     Schedule = schedule
                 };
 
-                // Используем представление из папки Home
                 return View("~/Views/Home/TeacherDashboard.cshtml", viewModel);
             }
             catch (Exception ex)
@@ -84,7 +84,7 @@ namespace journal.Controllers
             {
                 Console.WriteLine($"Ошибки валидации: {string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))}");
                 TempData["ErrorMessage"] = "Пожалуйста, заполните все обязательные поля";
-                return RedirectToAction("Dashboard");
+                return RedirectToAction("TeacherDashboard");
             }
 
             try
@@ -163,7 +163,7 @@ namespace journal.Controllers
             if (!ModelState.IsValid)
             {
                 TempData["ErrorMessage"] = "Пожалуйста, заполните все обязательные поля";
-                return RedirectToAction("Dashboard");
+                return RedirectToAction("TeacherDashboard");
             }
 
             try
@@ -177,7 +177,7 @@ namespace journal.Controllers
                 if (schedule == null)
                 {
                     TempData["ErrorMessage"] = "Расписание для указанной группы и предмета не найдено.";
-                    return RedirectToAction("Dashboard");
+                    return RedirectToAction("TeacherDashboard");
                 }
 
                 int successCount = 0;
@@ -254,8 +254,14 @@ namespace journal.Controllers
             if (teacherId == 0)
                 return RedirectToAction("Login", "Home");
 
+            Console.WriteLine($"=== ОЦЕНКА РАБОТЫ ===");
+            Console.WriteLine($"SubmissionId: {model.SubmissionId}");
+            Console.WriteLine($"Grade: {model.Grade}");
+            Console.WriteLine($"Feedback: {model.Feedback}");
+
             if (!ModelState.IsValid)
             {
+                Console.WriteLine($"Ошибки валидации: {string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))}");
                 TempData["ErrorMessage"] = "Пожалуйста, укажите оценку";
                 return RedirectToAction("TeacherDashboard");
             }
@@ -264,21 +270,43 @@ namespace journal.Controllers
             {
                 _dbManager.OpenConnection();
 
-                var result = await _dbManager.UpdateSubmissionGradeAsync(model.SubmissionId, model.Grade);
+                // Проверяем существование отправки
+                var submission = await _dbManager.GetSubmissionByIdAsync(model.SubmissionId);
+                if (submission == null)
+                {
+                    Console.WriteLine("Отправка не найдена");
+                    TempData["ErrorMessage"] = "Работа не найдена";
+                    return RedirectToAction("TeacherDashboard");
+                }
 
+                Console.WriteLine($"Найдена отправка: AssignmentId={submission.AssignmentId}, StudentId={submission.StudentId}");
+
+                // Обновляем оценку
+                var result = await _dbManager.UpdateSubmissionGradeAsync(model.SubmissionId, model.Grade);
+                Console.WriteLine($"Результат обновления оценки: {result}");
+
+                // Обновляем комментарий, если он есть
                 if (result && !string.IsNullOrEmpty(model.Feedback))
                 {
-                    await _dbManager.UpdateSubmissionFeedbackAsync(model.SubmissionId, model.Feedback);
+                    var feedbackResult = await _dbManager.UpdateSubmissionFeedbackAsync(model.SubmissionId, model.Feedback);
+                    Console.WriteLine($"Результат обновления комментария: {feedbackResult}");
                 }
 
                 if (result)
+                {
                     TempData["SuccessMessage"] = "Работа успешно оценена!";
+                    Console.WriteLine("Работа оценена успешно");
+                }
                 else
+                {
                     TempData["ErrorMessage"] = "Ошибка при оценке работы.";
+                    Console.WriteLine("Ошибка при оценке работы");
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Ошибка при оценке работы: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
                 TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
             }
             finally
@@ -367,19 +395,21 @@ namespace journal.Controllers
         }
 
         // СКАЧИВАНИЕ РАБОТЫ СТУДЕНТА
+
         [HttpGet]
-        public IActionResult DownloadSubmission(int submissionId)
+        public async Task<IActionResult> DownloadSubmission(int submissionId)
         {
             try
             {
                 _dbManager.OpenConnection();
-                var submissions = _dbManager.GetSubmissionsByAssignmentAsync(0).Result;
-                var submission = submissions.FirstOrDefault(s => s.Id == submissionId);
+
+                // Получаем конкретную отправку по ID
+                var submission = await _dbManager.GetSubmissionByIdAsync(submissionId);
 
                 if (submission == null || string.IsNullOrEmpty(submission.FilePath))
                 {
                     TempData["ErrorMessage"] = "Файл не найден";
-                    return RedirectToAction("Dashboard");
+                    return RedirectToAction("TeacherDashboard");
                 }
 
                 var fullPath = Path.Combine(_environment.WebRootPath, submission.FilePath.TrimStart('/'));
@@ -387,7 +417,7 @@ namespace journal.Controllers
                 if (!System.IO.File.Exists(fullPath))
                 {
                     TempData["ErrorMessage"] = "Файл не найден на сервере";
-                    return RedirectToAction("Dashboard");
+                    return RedirectToAction("TeacherDashboard");
                 }
 
                 var fileBytes = System.IO.File.ReadAllBytes(fullPath);
@@ -399,7 +429,7 @@ namespace journal.Controllers
             {
                 Console.WriteLine($"Ошибка при скачивании работы: {ex.Message}");
                 TempData["ErrorMessage"] = "Ошибка при скачивании файла";
-                return RedirectToAction("Dashboard");
+                return RedirectToAction("TeacherDashboard");
             }
             finally
             {
@@ -408,7 +438,7 @@ namespace journal.Controllers
         }
 
         // ПРОСМОТР ДЕТАЛЕЙ ЗАДАНИЯ
-        public IActionResult AssignmentDetails(int assignmentId)
+        public async Task<IActionResult> AssignmentDetails(int assignmentId)
         {
             var teacherId = GetCurrentTeacherId();
             if (teacherId == 0)
@@ -417,25 +447,26 @@ namespace journal.Controllers
             try
             {
                 _dbManager.OpenConnection();
-                var assignments = _dbManager.GetAssignmentsByTeacherAsync(teacherId).Result;
+                var assignments = await _dbManager.GetAssignmentsByTeacherAsync(teacherId);
                 var assignment = assignments.FirstOrDefault(a => a.Id == assignmentId);
 
                 if (assignment == null)
                 {
                     TempData["ErrorMessage"] = "Задание не найдено";
-                    return RedirectToAction("Dashboard");
+                    return RedirectToAction("TeacherDashboard");
                 }
 
-                var submissions = _dbManager.GetSubmissionsByAssignmentAsync(assignmentId).Result;
+                var submissions = await _dbManager.GetSubmissionsByAssignmentAsync(assignmentId);
 
                 ViewBag.Submissions = submissions;
-                return View(assignment);
+
+                return View("~/Views/Home/AssignmentDetails.cshtml", assignment);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Ошибка при загрузке деталей задания: {ex.Message}");
                 TempData["ErrorMessage"] = "Ошибка при загрузке данных";
-                return RedirectToAction("Dashboard");
+                return RedirectToAction("TeacherDashboard");
             }
             finally
             {
@@ -444,7 +475,7 @@ namespace journal.Controllers
         }
 
         // ПРОСМОТР ОЦЕНОК СТУДЕНТА
-        public IActionResult StudentGrades(int studentId)
+        public async Task<IActionResult> StudentGrades(int studentId)
         {
             var teacherId = GetCurrentTeacherId();
             if (teacherId == 0)
@@ -453,13 +484,13 @@ namespace journal.Controllers
             try
             {
                 _dbManager.OpenConnection();
-                var grades = _dbManager.GetGradesByStudentAsync(studentId).Result;
-                var student = _dbManager.GetStudentsAsync().Result.FirstOrDefault(s => s.Id == studentId);
+                var grades = await _dbManager.GetGradesByStudentAsync(studentId);
+                var student = (await _dbManager.GetStudentsAsync()).FirstOrDefault(s => s.Id == studentId);
 
                 if (student == null)
                 {
                     TempData["ErrorMessage"] = "Студент не найден";
-                    return RedirectToAction("Dashboard");
+                    return RedirectToAction("TeacherDashboard");
                 }
 
                 ViewBag.Student = student;
@@ -469,7 +500,7 @@ namespace journal.Controllers
             {
                 Console.WriteLine($"Ошибка при загрузке оценок: {ex.Message}");
                 TempData["ErrorMessage"] = "Ошибка при загрузке данных";
-                return RedirectToAction("Dashboard");
+                return RedirectToAction("TeacherDashboard");
             }
             finally
             {
@@ -505,7 +536,7 @@ namespace journal.Controllers
                 _dbManager.CloseConnection();
             }
 
-            return RedirectToAction("Dashboard");
+            return RedirectToAction("TeacherDashboard");
         }
 
         // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
@@ -513,7 +544,6 @@ namespace journal.Controllers
         {
             Console.WriteLine("=== ПОЛУЧЕНИЕ ТЕКУЩЕГО TEACHER ID ===");
 
-            // Получаем логин из сессии
             var teacherLogin = HttpContext.Session.GetString("TeacherLogin");
             Console.WriteLine($"TeacherLogin from Session: {teacherLogin}");
 
@@ -523,7 +553,6 @@ namespace journal.Controllers
                 return 0;
             }
 
-            // Находим ID преподавателя по логину
             try
             {
                 _dbManager.OpenConnection();
@@ -552,14 +581,14 @@ namespace journal.Controllers
             }
         }
 
-        private List<Submission> GetSubmissionsForTeacher(int teacherId)
+        private async Task<List<Submission>> GetSubmissionsForTeacher(int teacherId)
         {
             var submissions = new List<Submission>();
-            var assignments = _dbManager.GetAssignmentsByTeacherAsync(teacherId).Result;
+            var assignments = await _dbManager.GetAssignmentsByTeacherAsync(teacherId);
 
             foreach (var assignment in assignments)
             {
-                var assignmentSubmissions = _dbManager.GetSubmissionsByAssignmentAsync(assignment.Id).Result;
+                var assignmentSubmissions = await _dbManager.GetSubmissionsByAssignmentAsync(assignment.Id);
                 submissions.AddRange(assignmentSubmissions);
             }
 

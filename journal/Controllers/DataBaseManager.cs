@@ -2,7 +2,6 @@
 using journal.Services;
 using Microsoft.Data.SqlClient;
 using System.Data;
-using System.Data.Common;
 using System.Diagnostics;
 
 namespace journal.Controllers
@@ -386,8 +385,38 @@ namespace journal.Controllers
 
         public async Task<List<Student>> GetStudentsByGroupAsync(int groupId)
         {
-            var allStudents = await GetStudentsAsync();
-            return allStudents.Where(s => s.GroupId == groupId).ToList();
+            var students = new List<Student>();
+            try
+            {
+                var query = @"SELECT s.Id, s.Login, s.Password, s.Salt, s.FullName, s.GroupId, s.GroupName, g.Name 
+                             FROM Students s 
+                             LEFT JOIN Groups g ON s.GroupId = g.Id
+                             WHERE s.GroupId = @GroupId";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                {
+                    command.Parameters.AddWithValue("@GroupId", groupId);
+                    using var reader = await command.ExecuteReaderAsync();
+
+                    while (await reader.ReadAsync())
+                    {
+                        students.Add(new Student
+                        {
+                            Id = reader.GetInt32(0),
+                            Login = reader.GetString(1),
+                            Password = reader.GetString(2),
+                            FullName = reader.GetString(4),
+                            GroupId = reader.GetInt32(5),
+                            GroupName = !reader.IsDBNull(6) ? reader.GetString(6) : reader.GetString(7)
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении студентов по группе: {ex.Message}");
+            }
+            return students;
         }
 
         public async Task<bool> DeleteStudentAsync(int id)
@@ -616,6 +645,46 @@ namespace journal.Controllers
             }
         }
 
+        public async Task<List<Assignment>> GetAssignmentsAsync()
+        {
+            var assignments = new List<Assignment>();
+            try
+            {
+                var query = @"SELECT a.*, t.FullName as TeacherName, g.Name as GroupName 
+                     FROM Assignments a
+                     LEFT JOIN Teachers t ON a.TeacherId = t.Id
+                     LEFT JOIN Groups g ON a.GroupId = g.Id
+                     ORDER BY a.DueDate DESC";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        assignments.Add(new Assignment
+                        {
+                            Id = reader.GetInt32(0),
+                            Title = reader.GetString(1),
+                            Description = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                            Subject = reader.GetString(3),
+                            TeacherId = reader.GetInt32(4),
+                            GroupId = reader.GetInt32(5),
+                            DueDate = reader.GetDateTime(6),
+                            FilePath = reader.IsDBNull(7) ? "" : reader.GetString(7),
+                            CreatedAt = reader.GetDateTime(8),
+                            TeacherName = reader.GetString(9),
+                            GroupName = reader.GetString(10)
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении всех заданий: {ex.Message}");
+            }
+            return assignments;
+        }
+
         public async Task<List<Assignment>> GetAssignmentsByTeacherAsync(int teacherId)
         {
             var assignments = new List<Assignment>();
@@ -702,6 +771,47 @@ namespace journal.Controllers
             return assignments;
         }
 
+        public async Task<Assignment> GetAssignmentByIdAsync(int assignmentId)
+        {
+            try
+            {
+                var query = @"SELECT a.*, t.FullName as TeacherName, g.Name as GroupName 
+                     FROM Assignments a
+                     LEFT JOIN Teachers t ON a.TeacherId = t.Id
+                     LEFT JOIN Groups g ON a.GroupId = g.Id
+                     WHERE a.Id = @Id";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                {
+                    command.Parameters.AddWithValue("@Id", assignmentId);
+                    using var reader = await command.ExecuteReaderAsync();
+
+                    if (await reader.ReadAsync())
+                    {
+                        return new Assignment
+                        {
+                            Id = reader.GetInt32(0),
+                            Title = reader.GetString(1),
+                            Description = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                            Subject = reader.GetString(3),
+                            TeacherId = reader.GetInt32(4),
+                            GroupId = reader.GetInt32(5),
+                            DueDate = reader.GetDateTime(6),
+                            FilePath = reader.IsDBNull(7) ? "" : reader.GetString(7),
+                            CreatedAt = reader.GetDateTime(8),
+                            TeacherName = reader.GetString(9),
+                            GroupName = reader.GetString(10)
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении задания по ID: {ex.Message}");
+            }
+            return null;
+        }
+
         public async Task<bool> DeleteAssignmentAsync(int assignmentId, int teacherId)
         {
             try
@@ -786,6 +896,115 @@ namespace journal.Controllers
             return submissions;
         }
 
+        public async Task<List<Submission>> GetSubmissionsByStudentAsync(int studentId)
+        {
+            var submissions = new List<Submission>();
+            try
+            {
+                var query = @"SELECT s.*, a.Title as AssignmentTitle, st.FullName as StudentName 
+                     FROM Submissions s 
+                     LEFT JOIN Assignments a ON s.AssignmentId = a.Id 
+                     LEFT JOIN Students st ON s.StudentId = st.Id 
+                     WHERE s.StudentId = @StudentId
+                     ORDER BY s.SubmittedAt DESC";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                {
+                    command.Parameters.AddWithValue("@StudentId", studentId);
+                    using var reader = await command.ExecuteReaderAsync();
+
+                    while (await reader.ReadAsync())
+                    {
+                        submissions.Add(new Submission
+                        {
+                            Id = reader.GetInt32(0),
+                            AssignmentId = reader.GetInt32(1),
+                            StudentId = reader.GetInt32(2),
+                            FilePath = reader.GetString(3),
+                            SubmittedAt = reader.GetDateTime(4),
+                            Grade = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                            Feedback = reader.IsDBNull(6) ? "" : reader.GetString(6),
+                            StudentName = reader.GetString(7),
+                            AssignmentTitle = reader.GetString(8)
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении отправленных работ студента: {ex.Message}");
+            }
+            return submissions;
+        }
+
+        public async Task<Submission> GetSubmissionByIdAsync(int submissionId)
+        {
+            try
+            {
+                var query = @"SELECT s.*, st.FullName as StudentName, a.Title as AssignmentTitle
+                     FROM Submissions s
+                     LEFT JOIN Students st ON s.StudentId = st.Id
+                     LEFT JOIN Assignments a ON s.AssignmentId = a.Id
+                     WHERE s.Id = @Id";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                {
+                    command.Parameters.AddWithValue("@Id", submissionId);
+                    using var reader = await command.ExecuteReaderAsync();
+
+                    if (await reader.ReadAsync())
+                    {
+                        return new Submission
+                        {
+                            Id = reader.GetInt32(0),
+                            AssignmentId = reader.GetInt32(1),
+                            StudentId = reader.GetInt32(2),
+                            FilePath = reader.GetString(3),
+                            SubmittedAt = reader.GetDateTime(4),
+                            Grade = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                            Feedback = reader.IsDBNull(6) ? "" : reader.GetString(6),
+                            StudentName = reader.GetString(7),
+                            AssignmentTitle = reader.GetString(8)
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении отправки по ID: {ex.Message}");
+            }
+            return null;
+        }
+
+        
+
+        public async Task<bool> UpdateSubmissionAsync(Submission submission)
+        {
+            try
+            {
+                var query = @"UPDATE Submissions 
+                     SET FilePath = @FilePath, SubmittedAt = @SubmittedAt, 
+                         Grade = @Grade, Feedback = @Feedback 
+                     WHERE Id = @Id";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                {
+                    command.Parameters.AddWithValue("@FilePath", submission.FilePath ?? "");
+                    command.Parameters.AddWithValue("@SubmittedAt", submission.SubmittedAt);
+                    command.Parameters.AddWithValue("@Grade", submission.Grade ?? (object)DBNull.Value);
+                    command.Parameters.AddWithValue("@Feedback", submission.Feedback ?? "");
+                    command.Parameters.AddWithValue("@Id", submission.Id);
+
+                    return await command.ExecuteNonQueryAsync() > 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при обновлении отправки: {ex.Message}");
+                return false;
+            }
+        }
+
         public async Task<bool> UpdateSubmissionGradeAsync(int submissionId, int grade)
         {
             try
@@ -850,6 +1069,43 @@ namespace journal.Controllers
                 Console.WriteLine($"Ошибка при добавлении оценки: {ex.Message}");
                 return false;
             }
+        }
+
+        public async Task<List<Grade>> GetGradesAsync()
+        {
+            var grades = new List<Grade>();
+            try
+            {
+                var query = @"SELECT g.*, s.FullName as StudentName 
+                     FROM Grades g
+                     LEFT JOIN Students s ON g.StudentId = s.Id
+                     ORDER BY g.Date DESC";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        grades.Add(new Grade
+                        {
+                            Id = reader.GetInt32(0),
+                            StudentId = reader.GetInt32(1),
+                            Subject = reader.GetString(2),
+                            GradeValue = reader.GetInt32(3),
+                            GradeType = reader.GetString(4),
+                            Date = reader.GetDateTime(5),
+                            TeacherId = reader.GetInt32(6),
+                            Comments = reader.IsDBNull(7) ? "" : reader.GetString(7),
+                            StudentName = reader.GetString(8)
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении всех оценок: {ex.Message}");
+            }
+            return grades;
         }
 
         public async Task<List<Grade>> GetGradesByStudentAsync(int studentId)
@@ -917,6 +1173,85 @@ namespace journal.Controllers
                 Console.WriteLine($"Ошибка при добавлении посещаемости: {ex.Message}");
                 return false;
             }
+        }
+
+        public async Task<List<AttendanceRecord>> GetAttendanceAsync()
+        {
+            var attendance = new List<AttendanceRecord>();
+            try
+            {
+                var query = @"SELECT a.*, s.FullName as StudentName, sch.Subject
+                     FROM Attendance a
+                     LEFT JOIN Students s ON a.StudentId = s.Id
+                     LEFT JOIN Schedule sch ON a.ScheduleId = sch.Id
+                     ORDER BY a.Date DESC";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        attendance.Add(new AttendanceRecord
+                        {
+                            Id = reader.GetInt32(0),
+                            StudentId = reader.GetInt32(1),
+                            ScheduleId = reader.GetInt32(2),
+                            Date = reader.GetDateTime(3),
+                            IsPresent = reader.GetBoolean(4),
+                            RecordedBy = reader.GetInt32(5),
+                            RecordedAt = reader.GetDateTime(6),
+                            StudentName = reader.GetString(7),
+                            Subject = reader.GetString(8)
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении всей посещаемости: {ex.Message}");
+            }
+            return attendance;
+        }
+
+        public async Task<List<AttendanceRecord>> GetAttendanceByStudentAsync(int studentId)
+        {
+            var attendance = new List<AttendanceRecord>();
+            try
+            {
+                var query = @"SELECT a.*, s.FullName as StudentName, sch.Subject 
+                     FROM Attendance a 
+                     LEFT JOIN Students s ON a.StudentId = s.Id 
+                     LEFT JOIN Schedule sch ON a.ScheduleId = sch.Id 
+                     WHERE a.StudentId = @StudentId 
+                     ORDER BY a.Date DESC";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                {
+                    command.Parameters.AddWithValue("@StudentId", studentId);
+                    using var reader = await command.ExecuteReaderAsync();
+
+                    while (await reader.ReadAsync())
+                    {
+                        attendance.Add(new AttendanceRecord
+                        {
+                            Id = reader.GetInt32(0),
+                            StudentId = reader.GetInt32(1),
+                            ScheduleId = reader.GetInt32(2),
+                            Date = reader.GetDateTime(3),
+                            IsPresent = reader.GetBoolean(4),
+                            RecordedBy = reader.GetInt32(5),
+                            RecordedAt = reader.GetDateTime(6),
+                            StudentName = reader.GetString(7),
+                            Subject = reader.GetString(8)
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении посещаемости студента: {ex.Message}");
+            }
+            return attendance;
         }
 
         public async Task<List<AttendanceRecord>> GetAttendanceByDateAndGroupAsync(int groupId, DateTime date, string subject)
@@ -1034,6 +1369,90 @@ namespace journal.Controllers
             {
                 Console.WriteLine($"Ошибка при обновлении счетчика студентов: {ex.Message}");
             }
+        }
+
+        public async Task<Student> GetStudentByIdAsync(int studentId)
+        {
+            try
+            {
+                var query = @"SELECT s.Id, s.Login, s.Password, s.Salt, s.FullName, s.GroupId, s.GroupName, g.Name 
+                     FROM Students s 
+                     LEFT JOIN Groups g ON s.GroupId = g.Id
+                     WHERE s.Id = @Id";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                {
+                    command.Parameters.AddWithValue("@Id", studentId);
+                    using var reader = await command.ExecuteReaderAsync();
+
+                    if (await reader.ReadAsync())
+                    {
+                        return new Student
+                        {
+                            Id = reader.GetInt32(0),
+                            Login = reader.GetString(1),
+                            Password = reader.GetString(2),
+                            FullName = reader.GetString(4),
+                            GroupId = reader.GetInt32(5),
+                            GroupName = !reader.IsDBNull(6) ? reader.GetString(6) : reader.GetString(7)
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении студента по ID: {ex.Message}");
+            }
+            return null;
+        }
+        public async Task<bool> SubmissionExistsAsync(int assignmentId, int studentId)
+        {
+            try
+            {
+                var query = "SELECT COUNT(*) FROM Submissions WHERE AssignmentId = @AssignmentId AND StudentId = @StudentId";
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                {
+                    command.Parameters.AddWithValue("@AssignmentId", assignmentId);
+                    command.Parameters.AddWithValue("@StudentId", studentId);
+                    var result = await command.ExecuteScalarAsync();
+                    return Convert.ToInt32(result) > 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при проверке существования отправки: {ex.Message}");
+                return false;
+            }
+        }
+        public async Task<Teacher> GetTeacherByIdAsync(int teacherId)
+        {
+            try
+            {
+                var query = "SELECT Id, Login, Password, Salt, FullName, Subject FROM Teachers WHERE Id = @Id";
+
+                using (var command = new SqlCommand(query, _dateBaseConnection.GetConnection()))
+                {
+                    command.Parameters.AddWithValue("@Id", teacherId);
+                    using var reader = await command.ExecuteReaderAsync();
+
+                    if (await reader.ReadAsync())
+                    {
+                        return new Teacher
+                        {
+                            Id = reader.GetInt32(0),
+                            Login = reader.GetString(1),
+                            Password = reader.GetString(2),
+                            FullName = reader.GetString(4),
+                            Subject = reader.GetString(5)
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при получении преподавателя по ID: {ex.Message}");
+            }
+            return null;
         }
 
         public void Dispose()

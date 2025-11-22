@@ -1,0 +1,406 @@
+﻿@model journal.Models.Assignment
+@{
+    ViewData["Title"] = "Детали задания";
+    var submissions = ViewBag.Submissions as List<journal.Models.Submission> ?? new List<journal.Models.Submission>();
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"]</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .assignment-info {
+            margin-bottom: 30px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .info-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .description-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 15px;
+            border-left: 4px solid #27ae60;
+        }
+
+        .file-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            text-decoration: none;
+            margin-top: 10px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+            .table th, .table td {
+                padding: 15px;
+                text-align: left;
+                border-bottom: 1px solid #ecf0f1;
+            }
+
+            .table th {
+                background: #2c3e50;
+                color: white;
+                font-weight: 600;
+            }
+
+            .table tr:hover {
+                background: #f8f9fa;
+            }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 2px;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .grade-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .grade-input {
+            width: 80px;
+            padding: 8px;
+            border: 2px solid #bdc3c7;
+            border-radius: 6px;
+        }
+
+        .feedback-input {
+            flex: 1;
+            padding: 8px;
+            border: 2px solid #bdc3c7;
+            border-radius: 6px;
+            min-width: 200px;
+        }
+
+        .no-submissions {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+            font-size: 18px;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-graded {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>@Model.Title</h1>
+            <a href="@Url.Action("TeacherDashboard", "Teacher")" class="back-btn">← Назад к панели</a>
+        </div>
+
+        <!-- Отображение сообщений -->
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
+        <div class="card assignment-info">
+            <h2>📋 Информация о задании</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Предмет:</span>
+                    <span>@Model.Subject</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Группа:</span>
+                    <span>@Model.GroupName</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Срок сдачи:</span>
+                    <span>@Model.DueDate.ToString("dd.MM.yyyy")</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Дата создания:</span>
+                    <span>@Model.CreatedAt.ToString("dd.MM.yyyy HH:mm")</span>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(Model.Description))
+            {
+                <div class="description-box">
+                    <span class="info-label">Описание:</span>
+                    <p style="margin-top: 10px; line-height: 1.6;">@Model.Description</p>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(Model.FilePath))
+            {
+                <div style="margin-top: 20px;">
+                    <span class="info-label">Файл задания:</span>
+                    <br>
+                    <a href="@Url.Action("DownloadAssignment", "Teacher", new { filePath = Model.FilePath })" class="file-download">
+                        📎 Скачать файл задания
+                    </a>
+                </div>
+            }
+        </div>
+
+        <div class="card submissions-section">
+            <h2>📤 Работы студентов</h2>
+
+            @if (submissions.Any())
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Студент</th>
+                            <th>Дата отправки</th>
+                            <th>Файл работы</th>
+                            <th>Оценка</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var submission in submissions)
+                        {
+                            <tr>
+                                <td>@submission.StudentName</td>
+                                <td>@submission.SubmittedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(submission.FilePath))
+                                    {
+                                        <a href="@Url.Action("DownloadSubmission", "Teacher", new { submissionId = submission.Id })" class="btn btn-primary">
+                                            📎 Скачать
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: #7f8c8d;">Файл не загружен</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (submission.Grade.HasValue)
+                                    {
+                                        <strong>@submission.Grade</strong>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: #e74c3c;">Не оценено</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (submission.Grade.HasValue)
+                                    {
+                                        <span class="status-badge status-graded">Проверено</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge status-pending">Ожидает проверки</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!submission.Grade.HasValue)
+                                    {
+                                        <form method="post" asp-action="GradeSubmission" asp-controller="Teacher" class="grade-form">
+                                            <input type="hidden" name="SubmissionId" value="@submission.Id" />
+                                            <input type="number" name="Grade" min="1" max="100"
+                                                   placeholder="Оценка" class="grade-input" required>
+                                            <input type="text" name="Feedback" placeholder="Комментарий"
+                                                   class="feedback-input">
+                                            <button type="submit" class="btn btn-success">Оценить</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: #27ae60;">✓ Проверено</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+                    <strong>Статистика:</strong>
+                    @{
+                        var totalSubmissions = submissions.Count;
+                        var gradedSubmissions = submissions.Count(s => s.Grade.HasValue);
+                        var pendingSubmissions = totalSubmissions - gradedSubmissions;
+                    }
+                    <span>Всего работ: @totalSubmissions</span> |
+                    <span>Проверено: @gradedSubmissions</span> |
+                    <span>Ожидают проверки: @pendingSubmissions</span>
+                </div>
+            }
+            else
+            {
+                <div class="no-submissions">
+                    <h3>📭 Пока нет отправленных работ</h3>
+                    <p>Студенты еще не отправили работы по этому заданию.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <script>
+        // Автоматическое скрытие сообщений через 5 секунд
+        setTimeout(function() {
+            var alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                alert.style.transition = 'opacity 0.5s ease';
+                alert.style.opacity = '0';
+                setTimeout(function() {
+                    alert.remove();
+                }, 500);
+            });
+        }, 5000);
+
+        // Подтверждение оценки
+        document.querySelectorAll('.grade-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const gradeInput = this.querySelector('input[name="Grade"]');
+                const grade = parseInt(gradeInput.value);
+
+                if (grade < 1 || grade > 100) {
+                    e.preventDefault();
+                    alert('Оценка должна быть от 1 до 100');
+                    gradeInput.focus();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

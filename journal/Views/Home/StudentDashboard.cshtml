@@ -1,4 +1,4 @@
-﻿@model StudentDashboardViewModel
+﻿@model journal.Models.StudentDashboardViewModel
 @{
     ViewData["Title"] = "Панель студента";
 }
@@ -56,11 +56,12 @@
             background: var(--danger);
             color: var(--white);
             border: none;
-            padding: 8px 16px;
+            padding: 10px 20px;
             border-radius: var(--border-radius);
             cursor: pointer;
             text-decoration: none;
             display: inline-block;
+            font-weight: 600;
         }
 
         .dashboard-grid {
@@ -74,6 +75,7 @@
             padding: 20px;
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
+            margin-bottom: 20px;
         }
 
             .card h3 {
@@ -84,10 +86,10 @@
             }
 
         .assignment-item, .grade-item {
-            padding: 10px;
+            padding: 15px;
             border: 1px solid var(--gray-light);
             border-radius: var(--border-radius);
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
 
         .assignment-due {
@@ -103,6 +105,7 @@
             text-decoration: none;
             display: inline-block;
             margin: 5px;
+            font-size: 14px;
         }
 
         .btn-primary {
@@ -110,9 +113,21 @@
             color: var(--white);
         }
 
+        .btn-success {
+            background: var(--success);
+            color: var(--white);
+        }
+
         .file-input {
             margin: 10px 0;
         }
+
+            .file-input input {
+                padding: 8px;
+                border: 2px solid #bdc3c7;
+                border-radius: var(--border-radius);
+                width: 100%;
+            }
 
         .grade-excellent {
             color: var(--success);
@@ -133,6 +148,66 @@
             color: var(--danger);
             font-weight: bold;
         }
+
+        .alert {
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .submission-status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+
+        .submitted {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .not-submitted {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 30px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .assignment-title {
+            color: var(--primary-blue);
+            margin-bottom: 8px;
+        }
+
+        .assignment-description {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .assignment-meta {
+            margin: 8px 0;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -142,31 +217,82 @@
             <a href="/Home/Login" class="logout-btn">Выйти</a>
         </div>
 
+        <!-- Отображение сообщений -->
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
         <div class="dashboard-grid">
             <!-- Задания -->
             <div class="card">
                 <h3>📚 Домашние задания</h3>
-                @foreach (var assignment in Model.Assignments)
+                @if (Model.Assignments != null && Model.Assignments.Any())
                 {
-                    <div class="assignment-item">
-                        <h4>@assignment.Title</h4>
-                        <p>@assignment.Description</p>
-                        <p><strong>Предмет:</strong> @assignment.Subject</p>
-                        <p><strong>Срок сдачи:</strong> <span class="assignment-due">@assignment.DueDate.ToString("dd.MM.yyyy")</span></p>
+                    @foreach (var assignment in Model.Assignments)
+                    {
+                        var submission = Model.Submissions?.FirstOrDefault(s => s.AssignmentId == assignment.Id);
 
-                        @if (!string.IsNullOrEmpty(assignment.FilePath))
-                        {
-                            <a href="@assignment.FilePath" class="btn btn-primary" download>📥 Скачать задание</a>
-                        }
+                        <div class="assignment-item">
+                            <h4 class="assignment-title">@assignment.Title</h4>
+                            @if (!string.IsNullOrEmpty(assignment.Description))
+                            {
+                                <p class="assignment-description">@assignment.Description</p>
+                            }
+                            <p class="assignment-meta"><strong>Предмет:</strong> @assignment.Subject</p>
+                            <p class="assignment-meta"><strong>Срок сдачи:</strong> <span class="assignment-due">@assignment.DueDate.ToString("dd.MM.yyyy")</span></p>
 
-                        <!-- Форма для отправки решения -->
-                        <form method="post" action="/Student/SubmitAssignment" enctype="multipart/form-data">
-                            <input type="hidden" name="assignmentId" value="@assignment.Id" />
-                            <div class="file-input">
-                                <input type="file" name="solutionFile" accept=".pdf,.txt" required />
-                            </div>
-                            <button type="submit" class="btn btn-primary">📤 Отправить решение</button>
-                        </form>
+                            @if (!string.IsNullOrEmpty(assignment.FilePath))
+                            {
+                                <a href="@Url.Action("DownloadAssignment", "Student", new { filePath = assignment.FilePath })" class="btn btn-primary" download>📥 Скачать задание</a>
+                            }
+
+                            <!-- Статус отправки -->
+                            @if (submission != null)
+                            {
+                                <div class="submission-status submitted">
+                                    ✅ Работа отправлена: @submission.SubmittedAt.ToString("dd.MM.yyyy HH:mm")
+                                    @if (submission.Grade.HasValue)
+                                    {
+                                        <br>
+                                        <span>Оценка: <span class="@GetGradeClass(submission.Grade.Value)">@submission.Grade</span></span>
+                                    }
+                                </div>
+                                <a href="@Url.Action("DownloadSubmission", "Student", new { submissionId = submission.Id })" class="btn btn-primary">📥 Скачать мою работу</a>
+                            }
+                            else
+                            {
+                                <div class="submission-status not-submitted">
+                                    ⏳ Работа не отправлена
+                                </div>
+                            }
+
+                            <!-- Форма для отправки решения -->
+                            @if (submission == null)
+                            {
+                                <form method="post" action="@Url.Action("SubmitAssignment", "Student")" enctype="multipart/form-data">
+                                    <input type="hidden" name="assignmentId" value="@assignment.Id" />
+                                    <div class="file-input">
+                                        <input type="file" name="solutionFile" accept=".pdf,.txt,.docx,.doc" required />
+                                    </div>
+                                    <button type="submit" class="btn btn-success">📤 Отправить решение</button>
+                                </form>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="no-data">
+                        <p>Нет активных заданий</p>
                     </div>
                 }
             </div>
@@ -174,19 +300,28 @@
             <!-- Оценки -->
             <div class="card">
                 <h3>📊 Мои оценки</h3>
-                @foreach (var grade in Model.Grades)
+                @if (Model.Grades != null && Model.Grades.Any())
                 {
-                    <div class="grade-item">
-                        <p>
-                            <strong>@grade.Subject</strong> -
-                            <span class="@GetGradeClass(grade.GradeValue)">@grade.GradeValue</span>
-                            (@grade.GradeType)
-                        </p>
-                        <p><small>@grade.Date.ToString("dd.MM.yyyy")</small></p>
-                        @if (!string.IsNullOrEmpty(grade.Comments))
-                        {
-                            <p><em>@grade.Comments</em></p>
-                        }
+                    @foreach (var grade in Model.Grades)
+                    {
+                        <div class="grade-item">
+                            <p>
+                                <strong>@grade.Subject</strong> -
+                                <span class="@GetGradeClass(grade.GradeValue)">@grade.GradeValue</span>
+                                (@GetGradeTypeDisplayName(grade.GradeType))
+                            </p>
+                            <p class="assignment-meta">@grade.Date.ToString("dd.MM.yyyy")</p>
+                            @if (!string.IsNullOrEmpty(grade.Comments))
+                            {
+                                <p class="assignment-meta"><em>@grade.Comments</em></p>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="no-data">
+                        <p>Нет оценок</p>
                     </div>
                 }
             </div>
@@ -194,23 +329,33 @@
             <!-- Отправленные работы -->
             <div class="card">
                 <h3>📤 Отправленные работы</h3>
-                @foreach (var submission in Model.Submissions)
+                @if (Model.Submissions != null && Model.Submissions.Any())
                 {
-                    <div class="assignment-item">
-                        <p><strong>@submission.AssignmentTitle</strong></p>
-                        <p>Отправлено: @submission.SubmittedAt.ToString("dd.MM.yyyy HH:mm")</p>
-                        @if (submission.Grade.HasValue)
-                        {
-                            <p>Оценка: <span class="@GetGradeClass(submission.Grade.Value)">@submission.Grade</span></p>
-                            @if (!string.IsNullOrEmpty(submission.Feedback))
+                    @foreach (var submission in Model.Submissions)
+                    {
+                        <div class="assignment-item">
+                            <p><strong>@submission.AssignmentTitle</strong></p>
+                            <p class="assignment-meta">Отправлено: @submission.SubmittedAt.ToString("dd.MM.yyyy HH:mm")</p>
+                            @if (submission.Grade.HasValue)
                             {
-                                <p>Комментарий: @submission.Feedback</p>
+                                <p class="assignment-meta">Оценка: <span class="@GetGradeClass(submission.Grade.Value)">@submission.Grade</span></p>
+                                @if (!string.IsNullOrEmpty(submission.Feedback))
+                                {
+                                    <p class="assignment-meta"><strong>Комментарий преподавателя:</strong> @submission.Feedback</p>
+                                }
                             }
-                        }
-                        else
-                        {
-                            <p>Оценка: <em>ожидает проверки</em></p>
-                        }
+                            else
+                            {
+                                <p class="assignment-meta">Оценка: <em>ожидает проверки</em></p>
+                            }
+                            <a href="@Url.Action("DownloadSubmission", "Student", new { submissionId = submission.Id })" class="btn btn-primary">📥 Скачать мою работу</a>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="no-data">
+                        <p>Нет отправленных работ</p>
                     </div>
                 }
             </div>
@@ -218,26 +363,72 @@
             <!-- Посещаемость -->
             <div class="card">
                 <h3>📅 Посещаемость</h3>
-                @foreach (var attendance in Model.Attendance)
+                @if (Model.Attendance != null && Model.Attendance.Any())
                 {
-                    <div class="assignment-item">
-                        <p><strong>@attendance.Subject</strong> - @attendance.Date.ToString("dd.MM.yyyy")</p>
-                        <p>
-                            Статус:
-                            @if (attendance.IsPresent)
-                            {
-                                <span style="color: var(--success);">✅ Присутствовал</span>
-                            }
-                            else
-                            {
-                                <span style="color: var(--danger);">❌ Отсутствовал</span>
-                            }
-                        </p>
+                    @foreach (var attendance in Model.Attendance)
+                    {
+                        <div class="assignment-item">
+                            <p><strong>@attendance.Subject</strong> - @attendance.Date.ToString("dd.MM.yyyy")</p>
+                            <p class="assignment-meta">
+                                Статус:
+                                @if (attendance.IsPresent)
+                                {
+                                    <span style="color: var(--success);">✅ Присутствовал</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--danger);">❌ Отсутствовал</span>
+                                }
+                            </p>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="no-data">
+                        <p>Нет данных о посещаемости</p>
                     </div>
                 }
             </div>
         </div>
     </div>
+
+    <script>
+        // Автоматическое скрытие сообщений через 5 секунд
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                var alerts = document.querySelectorAll('.alert');
+                alerts.forEach(function(alert) {
+                    alert.style.transition = 'opacity 0.5s ease';
+                    alert.style.opacity = '0';
+                    setTimeout(function() {
+                        if (alert.parentNode) {
+                            alert.parentNode.removeChild(alert);
+                        }
+                    }, 500);
+                });
+            }, 5000);
+
+            // Подтверждение отправки файла
+            var forms = document.querySelectorAll('form');
+            forms.forEach(function(form) {
+                form.addEventListener('submit', function(e) {
+                    var fileInput = this.querySelector('input[type="file"]');
+                    if (fileInput && fileInput.files.length === 0) {
+                        e.preventDefault();
+                        alert('Пожалуйста, выберите файл для отправки');
+                        return false;
+                    }
+
+                    var submitButton = this.querySelector('button[type="submit"]');
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                        submitButton.textContent = 'Отправка...';
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
 
@@ -248,5 +439,17 @@
         if (grade >= 75) return "grade-good";
         if (grade >= 60) return "grade-satisfactory";
         return "grade-poor";
+    }
+
+    string GetGradeTypeDisplayName(string gradeType)
+    {
+        return gradeType?.ToLower() switch
+        {
+            "homework" => "Домашняя работа",
+            "test" => "Тест",
+            "exam" => "Экзамен",
+            "quiz" => "Контрольная работа",
+            _ => gradeType ?? "Оценка"
+        };
     }
 }

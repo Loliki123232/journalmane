@@ -10,6 +10,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@ViewData["Title"]</title>
     <style>
+        /* Стили остаются без изменений */
         * {
             margin: 0;
             padding: 0;
@@ -260,7 +261,7 @@
         <div id="assignments" class="tab-content active">
             <div class="card">
                 <h3>Создать новое задание</h3>
-                <form method="post" formaction="@Url.Action("CreateAssignment", "Teacher")" enctype="multipart/form-data">
+                <form method="post" action="@Url.Action("CreateAssignment", "Teacher")" enctype="multipart/form-data">
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Название задания:</label>
@@ -292,7 +293,7 @@
                         <label>Файл задания (PDF/TXT/DOCX):</label>
                         <input type="file" name="AssignmentFile" class="form-control" accept=".pdf,.txt,.docx,.doc">
                     </div>
-                    <button type="submit" formaction="@Url.Action("CreateAssignment", "Teacher")" class="btn btn-success">Создать задание</button>
+                    <button type="submit" class="btn btn-success">Создать задание</button>
                 </form>
             </div>
 
@@ -318,7 +319,7 @@
                                     <td>@assignment.DueDate.ToString("dd.MM.yyyy")</td>
                                     <td>
                                         <a href="@Url.Action("AssignmentDetails", new { assignmentId = assignment.Id })" class="btn btn-primary">Просмотреть отправки</a>
-                                        <form method="post" asp-action="DeleteAssignment" style="display: inline;">
+                                        <form method="post" action="@Url.Action("DeleteAssignment", "Teacher")" style="display: inline;">
                                             <input type="hidden" name="assignmentId" value="@assignment.Id" />
                                             <button type="submit" class="btn btn-danger" onclick="return confirm('Вы уверены, что хотите удалить это задание?')">Удалить</button>
                                         </form>
@@ -339,7 +340,7 @@
         <div id="attendance" class="tab-content">
             <div class="card">
                 <h3>Отметить посещаемость</h3>
-                <form method="post" asp-action="MarkAttendance" id="attendanceForm">
+                <form method="post" action="@Url.Action("MarkAttendance", "Teacher")" id="attendanceForm">
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Группа:</label>
@@ -376,7 +377,7 @@
         <div id="grades" class="tab-content">
             <div class="card">
                 <h3>Выставить оценку</h3>
-                <form method="post" asp-action="AddGrade">
+                <form method="post" action="@Url.Action("AddGrade", "Teacher")">
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Студент:</label>
@@ -445,6 +446,11 @@
                                         @if (submission.Grade.HasValue)
                                         {
                                             <span>@submission.Grade</span>
+                                            @if (!string.IsNullOrEmpty(submission.Feedback))
+                                            {
+                                                <br>
+                                                <small>Комментарий: @submission.Feedback</small>
+                                            }
                                         }
                                         else
                                         {
@@ -454,7 +460,7 @@
                                     <td>
                                         @if (!submission.Grade.HasValue)
                                         {
-                                            <form method="post" asp-action="GradeSubmission" class="grade-form">
+                                            <form method="post" action="@Url.Action("GradeSubmission", "Teacher")" class="grade-form">
                                                 <input type="hidden" name="SubmissionId" value="@submission.Id" />
                                                 <input type="number" name="Grade" min="1" max="100" placeholder="Оценка" class="grade-input" required>
                                                 <textarea name="Feedback" placeholder="Комментарий" rows="1" style="flex: 1;"></textarea>
@@ -577,6 +583,23 @@
             const subject = document.querySelector('select[name="Subject"]').value;
 
             loadAttendanceForDate(groupId, date, subject);
+        });
+
+        // Отладочный скрипт для отслеживания отправки форм
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('TeacherDashboard loaded');
+
+            // Отслеживаем все формы
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    console.log('Form submitted:', this.action);
+                    const formData = new FormData(this);
+                    for (let [key, value] of formData.entries()) {
+                        console.log(key + ': ' + value);
+                    }
+                });
+            });
         });
     </script>
 </body>

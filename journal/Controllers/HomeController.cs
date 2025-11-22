@@ -29,7 +29,7 @@ namespace journal.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Student(User user)
         {
-            Console.WriteLine($"Ïîïûòêà âõîäà ñòóäåíòà: {user.login}");
+            Console.WriteLine($"Попытка входа студента: {user.login}");
 
             if (!ModelState.IsValid)
                 return View("Login", user);
@@ -41,22 +41,33 @@ namespace journal.Controllers
                     dbManager.OpenConnection();
                     bool isAuthenticated = await dbManager.AuthenticateStudentAsync(user.login, user.password);
 
-                    Console.WriteLine($"Ðåçóëüòàò ñòóäåíòà: {isAuthenticated}");
+                    Console.WriteLine($"Результат студента: {isAuthenticated}");
 
                     if (isAuthenticated)
                     {
-                        // Ñîõðàíÿåì ëîãèí ñòóäåíòà â ñåññèè
+                        // Сохраняем логин студента в сессии
                         HttpContext.Session.SetString("StudentLogin", user.login);
-                        return RedirectToAction("StudentDashboard");
+
+                        // Получаем ID студента и сохраняем в сессии
+                        var students = await dbManager.GetStudentsAsync();
+                        var student = students.FirstOrDefault(s => s.Login == user.login);
+                        if (student != null)
+                        {
+                            HttpContext.Session.SetInt32("StudentId", student.Id);
+                            Console.WriteLine($"Студент найден: ID={student.Id}");
+                        }
+
+                        // ВАЖНО: Редирект на StudentController
+                        return RedirectToAction("StudentDashboard", "Student");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Îøèáêà ÁÄ ïðè âõîäå ñòóäåíòà: {ex.Message}");
+                    Console.WriteLine($"Ошибка БД при входе студента: {ex.Message}");
                 }
             }
 
-            ModelState.AddModelError("", "Íåâåðíûé ëîãèí èëè ïàðîëü");
+            ModelState.AddModelError("", "Неверный логин или пароль");
             return View("Login", user);
         }
 
